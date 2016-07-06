@@ -1,0 +1,123 @@
+---
+title: "Composite Endpoint Analysis Report"
+author: "[Missing Data Matters](http://sow.familyds.com/shiny/composite/)"
+date: "`r Sys.Date()`"
+toc: true
+number_sections: true
+output: pdf_document
+---
+
+\newpage
+
+# Data Summary
+
+```{r, echo=FALSE, eval=TRUE}
+library(xtable);
+
+dat.all <- get.data();
+summary(dat.all);
+```
+
+# Analysis Summary
+
+The basic settings of the analysis are as follows:
+
+```{r,echo=FALSE, eval=TRUE}
+    chk.var <- get.variables();
+    print(chk.var);
+```
+The imputation and bootstrap analysis settings are
+
+- Iterations: `r input$inIter`
+- Thinning: `r input$inThin`
+- Scale of random walk MH: `r input$inScale` 
+
+
+# Missingness Summary
+
+```{r,echo=FALSE, eval=TRUE, results='asis'}
+    mis.tbl <- get.mis.table(get.data(), lst.var = get.variables());
+    print(xtable(mis.tbl), comment = FALSE, align=c("r", rep("c",4)));
+```
+
+
+# Survival
+
+```{r,echo=FALSE, eval=TRUE}
+    plotSurv(get.data(), lst.var = get.variables());
+```
+
+\newpage
+
+# Imputation Result
+
+## Imputed Outcomes
+
+```{r,echo=FALSE, eval=TRUE}
+
+lst.var  <- get.variables();
+deltas   <- get.deltas();
+imp.data <- get.imputed.full();
+
+if (any(is.null(c(imp.data, lst.var, deltas)))) {
+  print("Not available");
+} else {
+    plotImputed(imp.data,
+                lst.var,
+                sort(unique(c(0, range(deltas)))));
+}
+	 
+```
+
+## Imputed Endpoint
+
+```{r,echo=FALSE, eval=TRUE}
+if (any(is.null(c(imp.data, lst.var, deltas)))) {
+  print("Not available");
+} else {
+  plotImputed(imp.data,
+              lst.var,
+              sort(unique(c(0, range(deltas)))),
+              endp=TRUE);
+}
+
+```
+
+## Composite Quantile
+
+```{r,echo=FALSE, eval=TRUE}
+if (is.null(imp.data)) {
+  print("Not available");
+} else {
+  plotComposite(imp.data, lst.var=lst.var);
+}
+```
+
+\newpage
+
+# Bootstrap Results
+
+## Hypothesis Testing
+
+```{r,echo=FALSE, eval=TRUE, results='asis'}
+
+sum.boot <- get.rst.overall();
+if (!is.null(sum.boot)) {
+    print(xtable(sum.boot$theta), comment=FALSE);
+} else {
+  print("Not available");
+}
+
+```
+
+## Median
+```{r,echo=FALSE, eval=TRUE, results='asis'}
+if (!is.null(sum.boot)) {
+    print(xtable(sum.boot$quantiles), comment=FALSE);
+} else {
+  print("Not available");
+}
+```
+
+
+

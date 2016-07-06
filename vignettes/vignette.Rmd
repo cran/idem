@@ -1,0 +1,231 @@
+---
+title: "idem: Inference in Randomized Controlled Trials with Death and Missingness"
+author: "Chenguang Wang"
+date: "`r Sys.Date()`"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{idem: Inference in Randomized Controlled Trials with Death and Missingness}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+
+```{r, eval=T, echo=FALSE}
+require(idem);
+set.seed(1000);
+```
+
+# Introduction
+
+In randomized studies involving severely ill patients, functional outcomes are
+often unobserved due to missed clinic visits, premature withdrawal or death. It
+is well known that if these unobserved functional outcomes are not handled
+properly, biased treatment comparisons can be produced.
+
+*R* package **idem** implement a procedure for comparing treatments that is
+based on the composite endpoint of both the functional outcome and survival. The
+procedure considers missing data imputation with a sensitivity analysis strategy
+to handle the unobserved functional outcomes not due to death.
+
+# Data accepted by **idem**
+
+In dataset accepted by **idem**, each row should represent a subject with
+treatment assignment, baseline coveraites, baseline outcome, post-randomization
+outcomes and survival time.
+
+The **idem** package provides dataset *abc* from *ABC* trial as an example data
+set.
+
+```{r, eval=T, echo=TRUE}
+head(abc);
+```
+
+# Basic setting
+
+Parameters of most functions in **idem** are organized and passed by a list.
+These parameters include variable names in the dataset, endpoint specification,
+duration of the study, etc..
+
+The function **chkPara** checks the specification in the list of parameters for errors:
+
+```{r, echo=TRUE, eval=T}
+ err.lst.var <- list(trt="TRT", outcome=c("Y1","Y2"),
+                 y0=NULL, endfml="Y2", bounds=c(10,20),
+                 duration=365);
+
+ chkPara(err.lst.var, abc);
+
+ lst.var <- list(trt="TRT", surv="SURV", outcome=c("Y1","Y2"),
+                 y0=NULL, endp=c("Y2"),
+                 unitTime="days",
+                 trt.label = c("UC+SBT", "SAT+SBT"),
+                 cov=c("AGE"), endfml="Y2",
+                 duration=365, bounds=c(0,100));
+
+ chkPara(lst.var, abc);
+```
+
+# Data visualization
+
+**idem** provides several functions for the visualization of the data.
+
+## Spaghetti plot for completers
+
+```{r, echo=TRUE, fig.width=6, fig.height=5}
+plotCompleters(abc, lst.var);
+```
+
+## Missing pattern frequency table
+```{r, echo=TRUE}
+get.mis.table(abc, lst.var);
+```
+
+## Missing pattern heatmap
+
+```{r, echo=TRUE, fig.width=6, fig.height=5}
+plotMisPattern(abc, lst.var);
+```
+
+## Kaplan-Meier curves
+
+```{r, echo=TRUE, fig.width=6, fig.height=5}
+plotSurv(abc, lst.var);
+```
+
+
+# Missing data imputation
+
+## Model fitting
+
+The first step in missing data imputation is to fit the imputation model to data
+observed from the completers, i.e. the subjects who were alive at the end of the
+study without missing data. The result has class name **IDEM.FIT**, which will
+be passed to imputation functions. 
+
+```{r, echo=TRUE, fig.width=6, fig.height=5}
+rst.fit <- fit.model(abc, lst.var);
+```
+
+## Check convergence
+
+The **p.scale** factor adjusts the mixing of the MCMC sampling for the
+imputation of missing values. It is suggested that the convergence of the MCMC
+chains for at least a small subset of the subjects should be checked first. This
+can be done by the **get.imp.all** function by setting **trace.n** to be a
+non-zero number.
+
+```{r, echo=TRUE, fig.width=6, fig.height=5}
+rst.mixing <- get.imp.all(abc, rst.fit, lst.var, deltas=0,
+                          trace.n=1, normal=TRUE, iter=500,
+                          p.scale=10);
+
+rst.chain <- list();
+for (i in 1:ncol(rst.mixing$mcmc[[1]])) {
+    rst.chain[[i]] <- rst.mixing$mcmc[[1]][,i,drop=FALSE];
+}
+coda::traceplot(rst.chain);
+```
+
+## Imputation
+
+The following code shows how to use **get.imp.all** to get the imputed complete
+datasets under benchmark assmption **delta=0** and for sensitivity analysis. We
+use **300** iterations to reduce the computation time.
+
+```{r, echo=TRUE, results="hide"}
+rst.imp <- get.imp.all(abc, rst.fit, lst.var, deltas=c(-0.25,0,0.25),
+                       normal=TRUE, iter=20, n.imp=2, thin=1,
+                       p.scale=10);
+```
+
+The following results show the completed datasets:
+
+```{r, echo=TRUE}
+tail(rst.imp, n=10);
+```
+
+## Plot denisity of the imputed data
+
+Function **plotImputed** plots the densities of the imputed outcomes and the
+imputed functional endpoint.
+
+```{r, echo=TRUE, fig.width=6, fig.height=5}
+plotImputed(rst.imp, lst.var, deltas=c(-0.25,0,0.25), xlim=c(0,100), endp=FALSE);
+```
+
+
+```{r, echo=TRUE, fig.width=6, fig.height=5}
+plotImputed(rst.imp, lst.var, deltas=c(-0.25,0,0.25), xlim=c(0,100), endp=TRUE);
+```
+
+# Composite endpoint analysis
+
+## Plot the cumulative distribution of the compositve endpoint
+
+Function **plotComposite** generates the treatment-specific cumulative
+distribution functions of the composite endpoint, where the values of the
+composite endpoint are labeled according to the survival time and functional
+endpoint among survivors.
+
+```{r, echo=TRUE, fig.width=6, fig.height=5}
+plotComposite(rst.imp, lst.var, delta=0);
+```
+
+## Estimation of $\theta$ and quantiles
+
+Given a complete dataset with imputed outcomes, **idem** estimates treatment
+effect and quantiles of the composite endpoint using function **get.theta.quantiles**:
+
+```{r, echo=TRUE}
+rst.est <- get.theta.quantiles(rst.imp, lst.var, quantiles=c(0.25,0.5,0.75));
+print(rst.est$theta);
+print(rst.est$quantiles);
+```
+
+## Bootstrap analysis
+
+**idem** evaluates the uncertainty of the estimated $\theta$ and quantiles by
+  bootstrap analysis.
+
+For illustration, we run **2** bootstrap samples by the following code:
+
+```{r, echo=TRUE}
+rst.boot <- get.bs.all(n.boot = 2,
+                       n.cores = 1,
+                       data.all = abc,
+                       lst.var = lst.var,
+                       deltas = c(-0.25, 0, 0.25),
+                       quantiles = c(0.25,0.5,0.75),
+                       normal=TRUE, iter=20,
+                       n.imp=2, thin=1,
+                       p.scale=10);
+```
+
+## Hypothesis testing
+
+Hypothesis testing results and the confidence intervals of \theta and quantiles
+of the composite endpoint are obtained by summarizing the results from the
+bootstrap analysis and the analysis on the original dataset:
+
+```{r, echo=TRUE}
+rst.final <- get.overall.rst(rst.est, rst.boot);
+print(rst.final);
+```
+
+A contour plot of p-values in the sensitivity analysis results can be generated
+by **plotContour**:
+
+```{r, echo=TRUE, fig.width=6, fig.height=5}
+plotContour(rst.final, lst.var, nlevels = 30,
+            con.v=0.05, zlim=c(0, 0.05));
+```
+
+# Graphical user interface (GUI)
+
+The **idem** package provides a web-based GUI for composite endpoint analysis.
+The GUI can be accessed by
+
+```{r, echo=TRUE, eval=FALSE}
+run.idem();
+```
+
