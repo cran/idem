@@ -57,6 +57,12 @@ shinyServer(function(input, output, session) {
     })
 
     ##--------------------------------------
+    ##---------exit-------------------------
+    ##--------------------------------------
+    observeEvent(input$close, {stopApp()});
+
+
+    ##--------------------------------------
     ##---------data upload------------------
     ##--------------------------------------
 
@@ -120,23 +126,23 @@ shinyServer(function(input, output, session) {
 
     ##missing pattern
     output$outPlotMissing <- renderPlot({
-        plotMisPattern(get.data(), lst.var = get.variables());
+        imPlotMisPattern(get.data(), lst.var = get.variables());
     }, width=1000, height=600, bg="transparent");
 
     ##missng table
     output$outTblMissing <- renderTable({
-	     get.mis.table(get.data(), lst.var = get.variables());
+	     imMisTable(get.data(), lst.var = get.variables());
     })
 
     ##survival
     output$outPlotSurv <- renderPlot({
-        plotSurv(get.data(), lst.var = get.variables())
+        imPlotSurv(get.data(), lst.var = get.variables())
         }, width=600, height=600, bg="transparent");
 
 
     ##completers
     output$outPlotComp <- renderPlot({
-        plotCompleters(get.data(), lst.var = get.variables());
+        imPlotCompleters(get.data(), lst.var = get.variables());
     }, width=1000, height=600, bg="transparent");
 
     ##--------------------------------------
@@ -157,7 +163,7 @@ shinyServer(function(input, output, session) {
         if (is.null(get.data()) | -1 == userLog$model)
             return(NULL);
 
-        frst <- get.fit.rst();
+        frst <- get.fit.rst()$rst.mdl;
         for (i in 1:length(frst)) {
             cur.trt <- frst[[i]];
             for (j in 1:length(cur.trt)) {
@@ -204,45 +210,20 @@ shinyServer(function(input, output, session) {
         })
     })
 
-    ##check convergence trace plot
-    observe({
-        if (is.null(input$btnConverge))
-            return(NULL);
-
+    output$tabSub <- renderTable({
         mcmc.rst <- get.imputed.mcmc();
-
         if (is.null(mcmc.rst))
             return(NULL);
 
-        for (i in 1:length(mcmc.rst$mcmc)) {
-            local({
-                myi          <- i;
-                tname        <- paste("uisub", myi, sep="");
-                varNames     <- colnames(mcmc.rst$imp.sub)
-                funcOutcomes <- mcmc.rst$imp.sub[myi,grepl('^Y[0-9]+$', varNames)]
-                missingNames <- colnames(funcOutcomes)[which(is.na(funcOutcomes))]
-
-                output[[tname]] <- renderTable({
-                    mcmc.rst$imp.sub[myi,];
-                })
-
-                pname   <- paste("uimcmc", myi, sep="");
-                ncols   <- ncol(mcmc.rst$mcmc[[myi]]);
-                plotObj <- list();
-                for(i in 1:ncols)
-                    plotObj[[i]] <- mcmc.rst$mcmc[[myi]][,i,drop=FALSE];
-
-                output[[pname]] <- renderPlot({
-                		par(las=1);
-                    coda::traceplot(plotObj, ylab='Functional Outcome');
-                    legend('topright', bty='n',
-                           legend = missingNames,
-                           lty = 1:length(missingNames),
-                           col = 1:length(missingNames))
-                }, bg="transparent")
-            })
-        }
+        mcmc.rst$dsub;
     })
+
+    output$mcmcSub <- renderPlot({
+        mcmc.rst <- get.imputed.mcmc();
+        if (is.null(mcmc.rst))
+            return(NULL);
+        rstan::traceplot(mcmc.rst$rst.stan, "YMIS");
+    }, bg="transparent")
 
     ##progress bar
     output$uiProgressGauge <- renderUI({
@@ -274,37 +255,34 @@ shinyServer(function(input, output, session) {
 
     ##imputed dataset
     output$impData <- renderDataTable({
-        if (is.null(get.imputed.full())) return(NULL);
-        get.imputed.full();
+        if (is.null(get.imputed.full()))
+            return(NULL);
+        get.imputed.full()$complete;
     })
 
     ##density of imputed individual outcomes
     output$outPImpY <- renderPlot({
         imp.data <- get.imputed.full();
-        lst.var  <- get.variables();
         deltas   <- get.deltas();
 
-        if (any(is.null(c(imp.data, lst.var, deltas))))
+        if (any(is.null(c(imp.data, deltas))))
             return(NULL);
 
-        plotImputed(imp.data,
-                    lst.var,
-                    sort(unique(c(0, range(deltas)))));
+        imPlotImputed(imp.data,
+                      deltas = sort(unique(c(0, range(deltas)))));
     }, width=800, height=800, bg="transparent")
 
     ##density of imputed individual endpoint
     output$outPImpE <- renderPlot({
         imp.data <- get.imputed.full();
-        lst.var  <- get.variables();
         deltas   <- get.deltas();
 
-        if (any(is.null(c(imp.data,lst.var,deltas))))
+        if (any(is.null(c(imp.data,deltas))))
             return(NULL);
 
-        plotImputed(imp.data,
-                    lst.var,
-                    sort(unique(c(0, range(deltas)))),
-                    endp=TRUE);
+        imPlotImputed(imp.data,
+                      deltas = sort(unique(c(0, range(deltas)))),
+                      endp=TRUE);
     }, width=800, height=400, bg="transparent")
 
 
@@ -331,7 +309,7 @@ shinyServer(function(input, output, session) {
         imp.data <- get.imputed.full();
         if (is.null(imp.data))
             return(NULL);
-        plotComposite(imp.data, lst.var = get.variables());
+        imPlotComposite(imp.data);
     }, width=800, height=400, bg="transparent");
 
     ##rank text
@@ -358,7 +336,8 @@ shinyServer(function(input, output, session) {
 
         rm.rst <- get.rst.orig();
         rm.rst$quantiles;
-    },include.rownames=TRUE,
+    },
+    include.rownames=TRUE,
     caption = 'Table: Quantiles of Compositve Variable.',
 		caption.placement = getOption("xtable.caption.placement", "top"))
 
@@ -372,7 +351,9 @@ shinyServer(function(input, output, session) {
 
         content=function(file) {
             tfile <- tempfile();
-            write.table(get.imputed.full(), tfile, row.names=FALSE);
+            write.table(get.imputed.full()$complete,
+                        tfile,
+                        row.names=FALSE);
             bytes <- readBin(tfile, "raw", file.info(tfile)$size);
             writeBin(bytes, file);
         })
@@ -436,10 +417,14 @@ shinyServer(function(input, output, session) {
 
     ## Contour plots
     output$outBootContourRank <- renderPlot({
-        if (0 == input$btnBoot) return(NULL);
+        if (0 == input$btnBoot)
+            return(NULL);
         rst <- get.rst.overall();
-        plotContour(rst, lst.var = get.variables());
-    }, width=500, height=500, bg="transparent");
+        imPlotContour(rst, plot.title="");
+    },
+    width=500,
+    height=500,
+    bg="transparent");
 
     ##--------------------------------------
     ##----------Report----------------------
@@ -470,15 +455,15 @@ shinyServer(function(input, output, session) {
         },
 
         content=function(file) {
-            out <- render('report/report.Rmd',
-                          switch(input$format,
-                                 PDF  = pdf_document(),
-                                 HTML = html_document(),
-                                 Word = word_document()
-                                 ));
+        out <- rmarkdown::render('report/report.Rmd',
+                                 switch(input$format,
+                                        PDF  = rmarkdown::pdf_document(),
+                                        HTML = rmarkdown::html_document(),
+                                        Word = rmarkdown::word_document()
+                                        ));
 
-            bytes <- readBin(out, "raw", file.info(out)$size);
-            writeBin(bytes, file);
-        })
+        bytes <- readBin(out, "raw", file.info(out)$size);
+        writeBin(bytes, file);
+    })
 
 })

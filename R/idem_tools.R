@@ -12,13 +12,14 @@ get.coef <- function(reg.rst) {
 ##get constants
 get.const <- function(cname) {
     switch(cname,
-           ORG.PREFIX = "ORG",
-           TXT.ENDP   = "ENDP",
-           FIT.CLASS  = "IDEM.FIT",
-           IMP.CLASS  = "IDEM.IMP",
-           RST.CLASS  = "IDEM.RST",
-           BOOT.CLASS = "IDEM.BOOT",
-           TEST.CLASS = "IDEM.TEST",
+           ORG.PREFIX  = "ORG",
+           TXT.ENDP    = "ENDP",
+           FIT.CLASS   = "IDEM.FIT",
+           IMP.CLASS   = "IDEM.IMP",
+           RST.CLASS   = "IDEM.RST",
+           BOOT.CLASS  = "IDEM.BOOT",
+           TEST.CLASS  = "IDEM.TEST",
+           BENCH.CLASS = "IDEM.IMPSUB",
            "default"
            )
 }
@@ -159,13 +160,28 @@ get.all.data <- function(fname) {
 
 ##transfer data to -inf to inf
 get.transfer <- function(x, bounds) {
+
+    if (is.null(bounds))
+        return(x);
+
     ux  <- (x - bounds[1])/(bounds[2] - bounds[1]);
     rst <- log(ux/(1-ux));
     rst
 }
 
-##get jacobian for data transfermation
 
+##transfer back to original scale
+get.inv.transfer <- function(x, bounds){
+    if (is.null(bounds))
+        return(x);
+
+    ux  <- exp(x)/(1+exp(x));
+    rst <- bounds[1] + ux * (bounds[2] - bounds[1]);
+    rst
+}
+
+
+##get jacobian for data transfermation
 get.jacob <- function(x, bounds) {
     if (is.null(bounds)) {
         dphi <- 1/(x-bounds[1]) + 1/(bounds[2]-x);
@@ -173,17 +189,6 @@ get.jacob <- function(x, bounds) {
         dphi <- 1;
     }
     rst  <- prod(dphi);
-}
-
-##transfer back to original scale
-get.inv.transfer <- function(x, bounds){
-    if (is.null(bounds)) {
-        rst <- x;
-    } else {
-        ux  <- exp(x)/(1+exp(x));
-        rst <- bounds[1] + ux * (bounds[2] - bounds[1]);
-    }
-    rst
 }
 
 ##transfer all data set
@@ -304,159 +309,6 @@ c.kdpdf <- function(err, res, h=NULL, log.v=TRUE) {
     rst
 }
 
-##empirical distributions
-get.loglike <- function(org.all.y, cov.x, fit.trt, bounds, normal=TRUE) {
-    ##out of boundary checking
-    if (!is.null(bounds)) {
-        if (any(org.all.y < bounds[1] | org.all.y > bounds[2] | is.na(org.all.y))) ## AL 06/08/2016
-            return(-Inf);
-    }
-
-    ##transfer data
-    all.y <- get.transfer(org.all.y, bounds);
-    ny  <- length(fit.trt);
-    rst <- 0;
-    for (i in 1:ny) {
-        cur.coef <- fit.trt[[i]]$coef;
-        cur.res  <- fit.trt[[i]]$res;
-        cur.h    <- fit.trt[[i]]$h;
-
-        if (1 == i) {
-            prev.y <- NULL;
-        } else {
-            prev.y <- all.y[1:(i-1)];
-        }
-
-        cur.mean <- sum(cur.coef[-1] * c(1, prev.y, cov.x));
-        cur.err  <- all.y[i] - cur.mean;
-
-        if (normal) {
-            cur.l <- dnorm(cur.err, 0, cur.coef[1], log=TRUE);
-        } else {
-
-            ##cur.l <- predict(fit.trt[[i]]$kde, x=cur.res);
-            cur.l <- c.kdpdf(cur.err, cur.res, cur.h);
-        }
-
-        rst <- rst + cur.l;
-    }
-
-    ##jabobian
-    cur.jacob <- get.jacob(org.all.y, bounds);
-    rst       <- rst + log(cur.jacob);
-
-    ##return
-    rst
-}
-
-
-##------------------------------------------------------
-##
-##           Metroplist Hasting
-##
-##------------------------------------------------------
-
-##objective log likelihood function for sampling
-smp.log.like <- function(miss.y, all.y, base.y, cov.x,
-                         fit.trt,
-                         bounds,
-                         parsed.endfml,
-                         delta=0,
-                         normal=TRUE) {
-
-    all.y[which(is.na(all.y))] <- miss.y;
-    ll <- get.loglike(all.y, cov.x, fit.trt, bounds, normal);
-    ##exponential tilting
-    if (delta != 0 & !is.infinite(ll)) {
-        ##name of d.frame can not be changed
-        ##its used in endfml
-        d.frame <- data.frame(rbind(c(all.y, base.y)));
-        endp    <- eval(parsed.endfml);
-        ll      <- ll + delta * endp;
-    }
-
-
-    ##return
-    ll
-}
-
-
-##random walk metroplis hasting
-##m is number of iteration
-##scale is the size of random walk
-rwmh.onestep <- function(log.fx, cur.par, scale, m=1, cur.pos=NULL, ...) {
-
-    if (is.null(cur.pos)) {
-        cur.pos <- log.fx(cur.par, ...);
-    }
-
-    accept  <- 0;
-    rst.b0  <- array(NA, dim=c(m,length(cur.par)));
-
-    for (i in 1:m) {
-        next.b0          <- cur.par + scale*rnorm(length(scale));
-        next.par         <- cur.par;
-        next.par         <- next.b0;
-        next.pos         <- log.fx(next.par, ...);
-        prob             <- exp(next.pos - cur.pos);
-
-        if (runif(1) < prob) {
-            cur.par <- next.par;
-            cur.pos <- next.pos;
-            accept  <- accept + 1;
-        }
-
-        rst.b0[i,] <- cur.par;
-    }
-
-    list(par=rst.b0, naccept=accept, ll=cur.pos);
-}
-
-## random walk metroplis hasting
-rwmh.sample <- function(log.fx,
-                        init=NULL,
-                        iteration=2000,
-                        best.scale=NULL,
-                        thin=1,
-                        burnin=NULL,
-                        p.scale=0.25,
-                        p.m=5, ...){
-
-    npars      <- length(init);
-    cur.par    <- init;
-
-    if (is.null(best.scale)) {
-        best.scale <- array(p.scale, dim=c(1, npars));
-    }
-
-    if (is.null(burnin)) {
-        burnin <- floor(iteration/2);
-    }
-
-    ##burin process
-    rstall.mcmc <- array(NA, dim=c(iteration, length(init)));
-
-    ##temporarilty keep the likelihood
-    nxt.ll      <- NULL;
-    for (i in 1:iteration) {
-        rb0             <- rwmh.onestep(log.fx, cur.par, m=1, scale=best.scale, cur.pos=nxt.ll, ...);
-        nxt.par         <- rb0$par;
-        nxt.ll          <- rb0$ll;
-        cur.par         <- nxt.par;
-        rstall.mcmc[i,] <- nxt.par;
-        ##}
-    }
-
-    ##burnin
-    rstall.mcmc <- rstall.mcmc[-(1:burnin),,drop=FALSE];
-
-    ##thin
-    rstall.mcmc <- rstall.mcmc[seq(thin, by=thin,
-                                   length.out=floor((iteration-burnin)/thin)),,drop=FALSE];
-
-    rstall.mcmc;
-}
-
 
 
 ##------------------------------------------------------
@@ -465,90 +317,43 @@ rwmh.sample <- function(log.fx,
 ##
 ##------------------------------------------------------
 
-##impute individual
-##p.scale: adjustment factor for metroplis random walking step. using sd(y) as the base
-imp.single <- function(csub,
-                       fit.all,
-                       lst.var,
-                       sd.y,
-                       trace=FALSE,
-                       normal=TRUE,
-                       deltas=0, n.imp=5, iter=2000, thin=10, p.scale=0.25) {
 
-    stopifnot(class(fit.all) == get.const("FIT.CLASS"));
 
-    voutcome      <- NULL;
-    vy0           <- NULL;
-    vtrt          <- NULL;
-    bounds        <- NULL;
-    parsed.endfml <- NULL;
+##exponetial tilting
+imp.exponential <- function(imp.single, deltas=0, n.imp=5, maxiter=1000) {
+    stopifnot(class(imp.single) == get.const("BENCH.CLASS"));
+    imp.single <- imp.single$complete;
 
-    get.para(lst.var, environment());
+    all.z <- imp.single[, get.const("TXT.ENDP")];
+    n.z   <- length(all.z);
 
-    outcome  <- csub[1, voutcome];
-    y0       <- csub[1, vy0];
-    trt      <- csub[1, vtrt];
-    vx       <- csub[1, c(vy0, vcov)];
-    fit.trt  <- fit.all[[as.character(trt)]];
-    scales   <- sd.y[as.character(trt),]*p.scale;
+    rst <- NULL;
+    for (i in 1:length(deltas)) {
+        cur.bz  <- all.z * deltas[i];
+        cur.M   <- max(cur.bz);
+        cur.imp <- NULL;
+        j       <- 1;
+        while (length(cur.imp) < n.imp & j < (n.imp*maxiter)) {
+            tmp.sub <- sample(1:n.z, 1);
+            tmp.p   <- exp(cur.bz[tmp.sub] - cur.M);
+            if (runif(1) < tmp.p) {
+                cur.imp <- c(cur.imp, tmp.sub);
+                j       <- j + 1;
+            }
+        }
 
-    names(y0)      <- vy0;
-    names(outcome) <- voutcome;
+        if (j > maxiter)
+            stop("The MCMC chain is not long enough for the requested number of imputations.");
 
-    ##---get trace plot---
-    if (trace) {
-        deltas <- deltas[1];
-        n.imp  <- 1;
-        burnin <- 1;
-        thin   <- 1;
-    } else {
-        ##only keep numer of imp samples
-        burnin <- iter;
+        ##add to rst
+        rst <- rbind(rst,
+                     cbind("DELTA" = deltas[i],
+                           "IMP"   = 1:n.imp,
+                           imp.single[cur.imp,]));
     }
 
-    ##missing voutcome that needs imputation
-    inx.1 <- which(is.na(outcome));
-    if (0 == length(inx.1)) {
-        return(NULL);
-    }
-
-    ##initial values using the mean
-    mean.y <- get.inv.transfer(get.joint.Normal.mu(vx, fit.trt),
-                               bounds);
-
-    ##iterations
-    n.iter <- iter + n.imp*thin;
-    ##imputation
-    n.delta <- length(deltas);
-    imp.all <- NULL;
-    for (l in 1:n.delta) {
-        cur.smp <- rwmh.sample(smp.log.like,
-                               init=mean.y[inx.1],
-                               iteration=n.iter,
-                               best.scale=scales[inx.1],
-                               burnin=burnin,
-                               thin=thin,
-                               all.y=outcome, base.y=y0, cov.x=vx,
-                               fit.trt=fit.trt,
-                               bounds=bounds,
-                               parsed.endfml=parsed.endfml,
-                               delta=deltas[l],
-                               normal=normal);
-        imp.all <- rbind(imp.all, cur.smp);
-    }
-
-    ##return
-    if (trace) {
-        rst <- coda::mcmc(imp.all);
-    } else {
-        rst  <- cbind("DELTA"=rep(deltas,  each=n.imp),
-                      "IMP"=rep(1:n.imp, length(deltas)),
-                      csub[rep(1, length(deltas)*n.imp), , drop=FALSE]);
-        rst[, voutcome[inx.1]] <- imp.all;
-    }
     rst
 }
-
 
 
 ##------------------------------------------------------
@@ -606,7 +411,7 @@ get.median <- function(val.trt, duration, quantiles=0.5, ...) {
     med.inx  <- quantile(1:nrow(sort.val), probs=quantiles);
 
     cbind(quantiles,
-          sort.val[ceiling(med.inx), 1:2])
+          sort.val[ceiling(med.inx), 1:2, drop=FALSE])
 }
 
 ##get rank and median from complete (after imputation) dataset
@@ -718,20 +523,35 @@ combine.boot.all <- function(n.boot, prefix="boot_rst", rst.name="rst.bs") {
     rst
 }
 
+
+
 ##bootstrap single case
 get.boot.single<- function(data.all,
                            lst.var,
-                           deltas = NULL,
-                           quantiles=NULL,
+                           deltas = 0,
+                           boot=TRUE,
+                           n.imp=5,
+                           normal=TRUE,
+                           stan.par=stan.par,
                            ...) {
     goodImp <- FALSE;
     while (!goodImp) {
         rst <- tryCatch({
-            smp.inx  <- get.bs.sample(data.all, lst.var);
-            cur.smp  <- data.all[smp.inx,];
-            fit.rst  <- fit.model(cur.smp, lst.var);
-            cur.full <- get.imp.all(cur.smp, fit.rst, lst.var, deltas=deltas, ...);
-            rst      <- get.theta.quantiles(cur.full, lst.var, deltas=deltas, quantiles=quantiles);
+            if (boot) {
+                smp.inx  <- get.bs.sample(data.all, lst.var);
+                cur.smp  <- data.all[smp.inx,];
+            } else {
+                cur.smp <- data.all;
+            }
+            fit.rst  <- imFitModel(cur.smp, lst.var);
+            cur.full <- do.call(imImpAll, c(list(data.all=cur.smp,
+                                                 fit.rst=fit.rst,
+                                                 normal=normal,
+                                                 n.imp=n.imp,
+                                                 deltas=deltas
+                                                 ),
+                                            stan.par));
+            rst      <- imEstimate(cur.full, ...);
             goodImp  <- TRUE;
             rst
         }, error = function(e) {

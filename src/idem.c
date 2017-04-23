@@ -58,31 +58,31 @@ void rankall(double *val1, double *val2, int *n1, int *n2,
 //bubble sort
 void bsort(double *val, int *n, double *duration, double *cuts, double *cutz) {
 
-    int hasChanged;
-    int itemCount;
-    int i, r2, k, ne;
-    double tmp[3];
+  int hasChanged;
+  int itemCount;
+  int i, r2, k, ne;
+  double tmp[3];
 
-    ne         = 3; //surv z inx
-    hasChanged = 1;
-    itemCount  = *n;
-    while (1 == hasChanged) {
-	hasChanged = 0;
-        itemCount--;
-        for(i=0; i<itemCount; i++) {
-            rankij(&val[i*ne], &val[i*ne+1],
-		     &val[(i+1)*ne], &val[(i+1)*ne+1],
-		     duration, cuts, cutz, &r2);
-            if (1 == r2) {
-		for (k=0; k<ne; k++) {
-		    tmp[k]          = val[i*ne+k];
-		    val[i*ne+k]     = val[(i+1)*ne+k];
-		    val[(i+1)*ne+k] = tmp[k];
-		    hasChanged      = 1;
-		}
+  ne         = 3; //surv z inx
+  hasChanged = 1;
+  itemCount  = *n;
+  while (1 == hasChanged) {
+    hasChanged = 0;
+    itemCount--;
+    for(i=0; i<itemCount; i++) {
+      rankij(&val[i*ne], &val[i*ne+1],
+             &val[(i+1)*ne], &val[(i+1)*ne+1],
+             duration, cuts, cutz, &r2);
+      if (1 == r2) {
+        for (k=0; k<ne; k++) {
+          tmp[k]          = val[i*ne+k];
+          val[i*ne+k]     = val[(i+1)*ne+k];
+          val[(i+1)*ne+k] = tmp[k];
+          hasChanged      = 1;
+        }
 	    }
-	}
     }
+  }
 }
 
 //get kernel density

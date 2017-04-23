@@ -21,9 +21,6 @@ procedure for missing clinical outcomes.}
 \item{endfml}{\code{R} expression indicating the user-specified final outcome of
 interest. This is the function for \eqn{Z} of one or more of \eqn{Y_k}'s.}
 
-\item{endp}{outcome variable names used in calculating the final clinical
-outcome, i.e. in \code{endfml}}
-
 \item{duration}{Length of the study. This is the time at which subjects' are
 assumed to be censored.}
 
@@ -51,4 +48,3 @@ lst.var <- list(trt="TRT", surv="SURV", outcome=c("Y1","Y2"),
 
 
 }
-

@@ -5,16 +5,18 @@
 #' @aliases idem
 #' @useDynLib idem, .registration = TRUE
 #'
+#' @importFrom rstan sampling extract stanc
 #' @importFrom grDevices colors pdf dev.off grey
 #' @importFrom graphics axis box legend lines par plot points text contour
 #'     filled.contour grid rect
 #' @importFrom utils read.table
 #' @importFrom sqldf sqldf
 #' @importFrom parallel detectCores mclapply
-#' @importFrom coda mcmc traceplot
 #'
 #' @import survival
 #' @import stats
+#' @import Rcpp
+#' @import methods
 #'
 #' @description
 #'
@@ -62,7 +64,7 @@
 #'
 #' @section Graphical user interface (GUI):
 #'
-#' This package provides a web-based GUI. See \code{\link{run.idem}} for
+#' This package provides a web-based GUI. See \code{\link{imShiny}} for
 #' details.
 #'
 #' @references
@@ -100,9 +102,6 @@ NULL
 #'
 #' @param endfml \code{R} expression indicating the user-specified final outcome of
 #'     interest. This is the function for \eqn{Z} of one or more of \eqn{Y_k}'s.
-#'
-#' @param endp outcome variable names used in calculating the final clinical
-#'     outcome, i.e. in \code{endfml}
 #'
 #' @param duration Length of the study. This is the time at which subjects' are
 #'     assumed to be censored.

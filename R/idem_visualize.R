@@ -1,123 +1,10 @@
 
-#' Check parameter specification
-#'
-#' Check if the \code{idem-parameters} are correctly specified and consistent
-#' with the data
-#'
-#' @inheritParams plotCompleters
-#'
-#' @param html logic indicator for the format of the error messages
-#'
-#' @return
-#'
-#'   Text messages if \code{html=TRUE} .
-#'
-#' @examples
-#'
-#' err.lst.var <- list(trt="TRT", outcome=c("Y1","Y2"),
-#'                 y0=NULL, endfml="Y3", bounds=c(10,20),
-#'                 duration=365);
-#'
-#' chkPara(err.lst.var, abc);
-#'
-#' @export
-#'
-#'
-#'
-chkPara <- function(lst.var, data.all, html = FALSE) {
-
-    ep <- function(msg) {
-        if (!html) {
-            rst <- paste(err.msg, "\n----", msg, sep="");
-        } else {
-            rst <- paste(err.msg, "<li>", msg, "</li>", sep="");
-        }
-    }
-
-    err.msg  <- NULL;
-    if (0 == length(lst.var$trt))
-        err.msg <- ep("No treatment specified");
-    if (1 < length(lst.var$trt))
-        err.msg <- ep("More than one treatment specified");
-    if (0 == length(lst.var$surv))
-        err.msg <- ep("No survival time specified");
-    if (1 < length(lst.var$surv))
-        err.msg <- ep("More than one survival time specified");
-    if (0 == length(lst.var$outcome))
-        err.msg <- ep("No outcome specified");
-    if (0 == length(lst.var$endp))
-        err.msg <- ep("Endpoint does not involve outcome");
-
-    var.out <- c(lst.var$outcome, lst.var$y0);
-
-    ##endpoints
-    if (is.null(lst.var$endfml) | 0 == nchar(gsub("\\s","",lst.var$endfml))) {
-        err.msg <- ep("Please specify endpoint");
-    } else {
-        chk.1 <- try({exp.end <- parse(text=lst.var$endfml);})
-        if ("try-error" == class(chk.1)) {
-            err.msg <- ep(paste("Endpoint error:", chk.1[1], sep=""));
-        } else if (1 < length(exp.end)) {
-            err.msg <- ep("Endpoint expression contains more than one line");
-        } else {
-            chk.end <- NULL;
-            eval(parse(text=paste("chk.end <- try(with(data.all[, var.out],
-                                  {",lst.var$endfml,"}))")));
-            if ("try-error" == class(chk.end))
-                err.msg <- ep( paste("Endpoint error:", chk.end[1], sep=""));
-        }
-    }
-
-    ##duration
-    if (is.na(lst.var$duration) |
-        is.null(lst.var$duration) |
-        lst.var$duration <=0)
-        err.msg <- ep("Study duration is not a proper positive number");
-
-    ##boundary
-    if (!is.null(lst.var$bounds)) {
-        if (any(is.na(lst.var$bounds))) {
-            err.msg <- ep("Lower or upper bound is not specified");
-        } else {
-            if (lst.var$bounds[1] > min(data.all[, var.out], na.rm=TRUE))
-                err.msg <- ep("Lower bound is bigger than some observed outcomes");
-
-            if (lst.var$bounds[2] < max(data.all[, var.out], na.rm=TRUE))
-                err.msg <- ep("Upper bound is bigger than some observed outcomes");
-        }
-    }
-
-    ##return
-    if (is.null(err.msg)) {
-        if (html) {
-            rst <- NULL;
-        } else {
-            rst <- "No error found. \n";
-        }
-    } else {
-        rst <- "Model specification in not valid. Please check the following:";
-        if (html) {
-            rst <- paste(rst, "<ul>", err.msg, "</ul>");
-        } else {
-            rst <- paste(rst, err.msg, "\n");
-        }
-    }
-
-    if (html) {
-        return(rst);
-    } else {
-        cat(rst);
-    }
-}
 
 #' Plot data of completer
 #'
 #' Spaghetti plot for subjects alive at the end of the study without missing data
 #'
-#'
-#' @param data.all Original dataset
-#'
-#' @param lst.var see \code{\link{idem-parameters}}
+#' @inheritParams imFitModel
 #'
 #' @param fname File name of the result pdf file. If \code{fname} is null,
 #'     result pdf file will not be generated
@@ -130,16 +17,22 @@ chkPara <- function(lst.var, data.all, html = FALSE) {
 #'                 y0=NULL, trt.label = c("UC+SBT", "SAT+SBT"),
 #'                 duration=365);
 #'
-#' plotCompleters(abc, lst.var);
+#' imPlotCompleters(abc, lst.var);
 #'
 #' @export
 #'
 #'
 #'
-plotCompleters <- function(data.all,
+imPlotCompleters <- function(data.all,
                            lst.var,
                            fname=NULL,
                            ...) {
+
+    cpara <- imChkPars(data.all, lst.var);
+    if (!is.null(cpara)) {
+        cat(cpara);
+        return(NULL);
+    }
 
     vsurv     <- NULL;
     duration  <- NULL;
@@ -220,7 +113,7 @@ plotCompleters <- function(data.all,
 
 #' Generate table of missingness pattern frequencies
 #'
-#' @inheritParams plotCompleters
+#' @inheritParams imFitModel
 #'
 #' @return A matrix with frequencies of each missing pattern
 #'
@@ -230,17 +123,27 @@ plotCompleters <- function(data.all,
 #'                 y0=NULL, trt.label = c("UC+SBT", "SAT+SBT"),
 #'                 duration=365);
 #'
-#' get.mis.table(abc, lst.var);
+#' imMisTable(abc, lst.var);
 #'
 #' @export
 #'
-get.mis.table <- function(data.all, lst.var) {
+imMisTable <- function(data.all, lst.var) {
+
+    cpara <- imChkPars(data.all, lst.var);
+    if (!is.null(cpara)) {
+        cat(cpara);
+        return(NULL);
+    }
 
     vtrt     <- NULL;
     voutcome <- NULL;
-    duration <- NULL;
+    eoutcome <- NULL;
     vsurv    <- NULL;
-    trt.len  <- NULL;
+    duration <- NULL;
+    endfml   <- NULL;
+    tmp.endp <- NULL;
+    vy0      <- NULL;
+    bounds   <- NULL;
 
     get.para(lst.var, environment());
 
@@ -290,7 +193,8 @@ get.mis.table <- function(data.all, lst.var) {
 #'
 #' Plot the missing patterns of the observed data
 #'
-#' @inheritParams plotCompleters
+#' @inheritParams imFitModel
+#' @inheritParams imPlotCompleters
 #'
 #' @param cols Color of observed and missing values
 #'
@@ -299,14 +203,20 @@ get.mis.table <- function(data.all, lst.var) {
 #' lst.var <- list(trt="TRT", outcome=c("Y1","Y2"),
 #'                 trt.label = c("UC+SBT", "SAT+SBT"));
 #'
-#' plotMisPattern(abc, lst.var);
+#' imPlotMisPattern(abc, lst.var);
 #'
 #' @export
 #'
-plotMisPattern <- function(data.all,
-                           lst.var,
-                           cols=c("blue", "gray"),
-                           fname=NULL, ...) {
+imPlotMisPattern <- function(data.all,
+                             lst.var,
+                             cols=c("blue", "gray"),
+                             fname=NULL, ...) {
+
+    cpara <- imChkPars(data.all, lst.var);
+    if (!is.null(cpara)) {
+        cat(cpara);
+        return(NULL);
+    }
 
     voutcome <- NULL;
     vtrt     <- NULL;
@@ -357,7 +267,8 @@ plotMisPattern <- function(data.all,
 #'
 #' Plot Kaplan-Meier survival curves
 #'
-#' @inheritParams plotCompleters
+#' @inheritParams imFitModel
+#' @inheritParams imPlotCompleters
 #'
 #' @param cols Curve colors of the treatment and control arm
 #'
@@ -366,14 +277,20 @@ plotMisPattern <- function(data.all,
 #' lst.var <- list(trt="TRT", surv="SURV", outcome=c("Y1","Y2"),
 #'                 y0=NULL, trt.label = c("UC+SBT", "SAT+SBT"),
 #'                 duration=365);
-#' plotSurv(abc, lst.var);
+#' imPlotSurv(abc, lst.var);
 #'
 #' @export
 #'
-plotSurv <- function(data.all,
-                     lst.var,
-                     cols=c("black", "blue"),
-                     fname=NULL, ...) {
+imPlotSurv <- function(data.all,
+                       lst.var,
+                       cols=c("black", "blue"),
+                       fname=NULL, ...) {
+
+    cpara <- imChkPars(data.all, lst.var);
+    if (!is.null(cpara)) {
+        cat(cpara);
+        return(NULL);
+    }
 
     vsurv    <- NULL;
     vtrt     <- NULL;
@@ -432,8 +349,10 @@ plotSurv <- function(data.all,
 #'
 #' Plot density of imputed values and the density of the observed outcomes
 #'
-#' @param imp.data A class \code{IDEM.IMP} dataframe containing complete data
-#'     with relevant missing values imputed. See \code{\link{get.imp.all}}.
+#' @inheritParams imPlotCompleters
+#'
+#' @param imp.rst A class \code{IDEM.IMP} list containing complete data
+#'     with relevant missing values imputed. See \code{\link{imImpAll}}.
 #'
 #' @param deltas Imputation sensitivity parameter for which to generate the results
 #'
@@ -452,35 +371,40 @@ plotSurv <- function(data.all,
 #'
 #' @param adj \code{density} estimation option
 #'
-#' @inheritParams plotCompleters
 #'
 #' @examples
 #' \dontrun{
-#' rst.imp <- get.imp.all(abc, rst.fit, lst.var, deltas=c(-0.25,0,0.25),
-#'                        normal=TRUE, iter=300, n.imp=2, thin=10, p.scale=10);
-#'
-#' plotImputed(rst.imp, lst.var, deltas=c(-0.25,0,0.25),
-#'             xlim=c(0,100), endp=FALSE);}
+#' lst.var <- list(trt="TRT", surv="SURV", outcome=c("Y1","Y2"), y0=NULL,
+#'                 endp=c("Y2"), unitTime="days",
+#'                 trt.label = c("UC+SBT", "SAT+SBT"),
+#'                 cov=c("AGE"), endfml="Y2", duration=365, bounds=c(0,100));
+#' rst.fit <- imFitModel(abc, lst.var);
+#' rst.imp <- imImpAll(abc, rst.fit, deltas=c(-0.25,0,0.25),
+#'                     normal=TRUE, chains = 4, iter = 2000, warmup = 1000);
+#' imPlotImputed(rst.imp, deltas=c(-0.25,0,0.25), xlim=c(0,100), endp=FALSE);}
 #'
 #' @export
 #'
-plotImputed <- function(imp.data,
-                        lst.var,
-                        deltas=0,
-                        endp=FALSE,
-                        fname=NULL,
-                        adj=1.5,
-                        cols=c("red","cyan","blue","green","brown"),
-                        ltys=rep(1, 6),
-                        xlim=NULL,
-                        ylim=NULL,
-                        mfrow=NULL,
-                        ...) {
+imPlotImputed <- function(imp.rst,
+                          deltas=0,
+                          endp=FALSE,
+                          fname=NULL,
+                          adj=1.5,
+                          cols=c("red","cyan","blue","green","brown"),
+                          ltys=rep(1, 6),
+                          xlim=NULL,
+                          ylim=NULL,
+                          mfrow=NULL,
+                          ...) {
 
-    if (is.null(imp.data))
+    if (is.null(imp.rst))
         return(NULL);
 
-    stopifnot(any(class(imp.data) == get.const("IMP.CLASS")));
+    stopifnot(any(class(imp.rst) == get.const("IMP.CLASS")));
+    stopifnot(all(deltas %in% imp.rst$deltas));
+
+    lst.var    <- imp.rst$lst.var;
+    imp.data   <- imp.rst$complete;
 
     TXT.ENDP   <- get.const("TXT.ENDP");
     ORG.PREFIX <- get.const("ORG.PREFIX");
@@ -612,7 +536,8 @@ plotImputed <- function(imp.data,
 #'
 #' Generate cumulative plot of the composite survival and functional outcome
 #'
-#' @inheritParams plotImputed
+#' @inheritParams imPlotCompleters
+#' @inheritParams imPlotImputed
 #'
 #' @param at.surv Sets the range of the survival times to plot in the cumulative distribution function.
 #' By default the range is the range of survival values up to the duration of the study.
@@ -640,32 +565,36 @@ plotImputed <- function(imp.data,
 #'                 endp=c("Y2"), unitTime="days",
 #'                 trt.label = c("UC+SBT", "SAT+SBT"),
 #'                 cov=c("AGE"), endfml="Y2", duration=365, bounds=c(0,100));
-#' rst.fit <- fit.model(abc, lst.var);
-#' rst.imp <- get.imp.all(abc, rst.fit, lst.var, deltas=c(-0.25,0,0.25),
-#'                        normal=TRUE, iter=300, n.imp=2, thin=10, p.scale=10);
+#' rst.fit <- imFitModel(abc, lst.var);
+#' rst.imp <- imImpAll(abc, rst.fit, deltas=c(-0.25,0,0.25),
+#'                     normal=TRUE, chains = 4, iter = 2000, warmup = 1000);
+#' imPlotComposite(rst.imp);}
 #'
-#' plotComposite(rst.imp, lst.var, delta=0);}
 #' @export
 #'
-plotComposite <- function(imp.data,
-                          lst.var,
-                          delta=0,
-                          buffer=0.05,
-                          at.surv=NULL,
-                          at.z=NULL,
-                          p.death=NULL,
-                          seg.lab=c("Survival", "Functional"),
-                          fname=NULL,
-                          cols=rep(c("cyan", "red"),3),
-                          ltys=rep(1, 6),
-                          main="",
-                          ...) {
+imPlotComposite <- function(imp.rst,
+                            delta=0,
+                            buffer=0.05,
+                            at.surv=NULL,
+                            at.z=NULL,
+                            p.death=NULL,
+                            seg.lab=c("Survival", "Functional"),
+                            fname=NULL,
+                            cols=rep(c("cyan", "red"),3),
+                            ltys=rep(1, 6),
+                            main="",
+                            ...) {
 
 
-    if (is.null(imp.data))
+    if (is.null(imp.rst))
         return(NULL);
 
-    stopifnot(any(class(imp.data) == get.const("IMP.CLASS")));
+    stopifnot(any(class(imp.rst) == get.const("IMP.CLASS")));
+    stopifnot(1 == length(delta));
+    stopifnot(delta %in% imp.rst$deltas);
+
+    lst.var    <- imp.rst$lst.var;
+    imp.data   <- imp.rst$complete;
 
     f.y  <- function(x) {
         rst <- p.death+buffer + (1-p.death-buffer)*(x - range.y[1])/(range.y[2]-range.y[1]);
@@ -763,13 +692,14 @@ plotComposite <- function(imp.data,
 #'
 #' Generate contour plot of p-values for sensitivity analysis results
 #'
-#' @param rst.final A class \code{IDEM.TEST} list generated by
-#'     \code{\link{get.overall.rst}}
+#' @inheritParams imPlotCompleters
+#'
+#' @param test.rst A class \code{IDEM.TEST} list generated by
+#'     \code{\link{imTest}}
 #' @param con.v Levels of contour plot
 #' @param nlevels Levels of color scale
 #' @param ... Options for \code{filled.contour}
 #'
-#' @inheritParams plotCompleters
 #'
 #' @examples
 #'
@@ -778,30 +708,22 @@ plotComposite <- function(imp.data,
 #'                 endp=c("Y2"), unitTime="days",
 #'                 trt.label = c("UC+SBT", "SAT+SBT"),
 #'                 cov=c("AGE"), endfml="Y2", duration=365, bounds=c(0,100));
-#' rst.fit <- fit.model(abc, lst.var);
-#' rst.imp <- get.imp.all(abc, rst.fit, lst.var, deltas=c(-0.25,0,0.25),
-#'                        normal=TRUE, iter=300, n.imp=2, thin=10, p.scale=10);
-#' rst.est <- get.theta.quantiles(rst.imp, lst.var,
-#'                                quantiles=c(0.25,0.5,0.75));
-#' rst.boot <- get.bs.all(n.boot = 10, n.cores = 5, data.all = abc,
-#'                        lst.var = lst.var, deltas = c(-0.25, 0, 0.25),
-#'                        quantiles = c(0.25,0.5,0.75), normal=TRUE,
-#'                        iter=300, n.imp=2, thin=10, p.scale=10);
-#'
-#' rst.final <- get.overall.rst(rst.est, rst.boot);
-#' plotContour(rst.final, lst.var, con.v=0.05, nlevels = 30);
-#' }
+#' rst.fit <- imFitModel(abc, lst.var);
+#' rst.imp <- imImpAll(abc, rst.fit, deltas=c(-0.25,0,0.25),
+#'                     normal=TRUE, chains = 4, iter = 2000, warmup = 1000);
+#' rst.final <- imTest(rst.boot);
+#' rst.boot  <- imBs(rst.imp, n.boot = 10, n.cores = 5);
+#' imPlotContour(rst.final, con.v=0.05, nlevels = 30);}
 #'
 #' @export
 #'
-plotContour <- function(rst.final, lst.var, con.v=0.05, nlevels=30, ...) {
-
-    stopifnot(class(rst.final) == get.const("TEST.CLASS"));
-
+imPlotContour <- function(test.rst, con.v=0.05, nlevels=30, ...) {
+    stopifnot(class(test.rst) == get.const("TEST.CLASS"));
+    lst.var <- test.rst$lst.var;
     trt.len <- NULL;
     get.para(lst.var, environment());
 
-    cur.data <- rst.final$theta;
+    cur.data <- test.rst$theta;
     alphas   <- sort(unique(cur.data$Delta0));
     ql       <- as.expression(lapply(trt.len, function(l) bquote(.(l)~Delta)));
     nalpha   <- length(alphas);
@@ -814,7 +736,11 @@ plotContour <- function(rst.final, lst.var, con.v=0.05, nlevels=30, ...) {
     }
 
     par(oma=c(1,0,0,0));
-    filled.contour(alphas, alphas, rst, xlab = ql[1], ylab= ql[2],
+    filled.contour(alphas,
+                   alphas,
+                   rst,
+                   xlab = ql[1],
+                   ylab= ql[2],
                    ...,
                    col=grey(seq(1,0,length=nlevels)),
                    plot.axes={axis(side=1, at=alphas);
@@ -824,5 +750,3 @@ plotContour <- function(rst.final, lst.var, con.v=0.05, nlevels=30, ...) {
                                       labcex=1.2, lwd=2, add=T, drawlabels=TRUE)
                                  });
 }
-
-

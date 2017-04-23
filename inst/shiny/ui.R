@@ -34,7 +34,17 @@ shinyUI(
               ##title box
               withTags({
                   div(class="cheader",
-                      "Composite Endpoint Death Truncated Data Analysis")
+                      "Composite Endpoint Death Truncated Data Analysis",
+                      tags$button(
+                               id = 'close',
+                               type = "button",
+                               class = "btn action-button",
+                               onclick = "setTimeout(function(){window.close();},500);",  # close browser
+                               "Exit",
+                               style="float: right;
+                                      background-image: url(texturebg2.jpg);"
+                           )
+                      )
               }),
 
               ##main page
