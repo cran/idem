@@ -5,7 +5,7 @@
 \title{Boostrap analysis}
 \usage{
 imBs(imp.rst, n.boot = 100, n.cores = 1, update.progress = NULL,
-  offset = 10000, quantiles = 0.5)
+  quantiles = 0.5)
 }
 \arguments{
 \item{imp.rst}{A class \code{IDEM.IMP} list containing complete data
@@ -16,9 +16,6 @@ with relevant missing values imputed. See \code{\link{imImpAll}}.}
 \item{n.cores}{Number of cores for parallel computation}
 
 \item{update.progress}{Parameter reserved for run \code{idem} in GUI mode}
-
-\item{offset}{A constant value to be added to survival days for reporting the
-median value}
 
 \item{quantiles}{Quantiles of the composite endpoint to be reported}
 }
@@ -44,3 +41,4 @@ rst.imp <- imImpAll(abc, rst.fit, deltas=c(-0.25,0,0.25),
 rst.boot <- imBs(rst.imp, n.boot = 10, n.cores = 5, quantiles = c(0.25,0.5,0.75));}
 
 }
+

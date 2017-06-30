@@ -409,7 +409,6 @@ c.bubblesort <- function(val.trt, duration, cut.surv=0, cut.z=0) {
 get.median <- function(val.trt, duration, quantiles=0.5, ...) {
     sort.val <- c.bubblesort(val.trt, duration, ...);
     med.inx  <- quantile(1:nrow(sort.val), probs=quantiles);
-
     cbind(quantiles,
           sort.val[ceiling(med.inx), 1:2, drop=FALSE])
 }
@@ -450,6 +449,28 @@ get.data.ready <- function(data.full, lst.var, atrt) {
     rst     <- list(NULL);
     for (i in 1:length(atrt)) {
         rst[[i]] <- dat.red[which(atrt[i] == dat.red[,1]), 2:3];
+    }
+    rst
+}
+
+##get composite endpoint
+get.comp <- function(y, surv, duration=NULL) {
+    rst <- y;
+    if (is.null(duration)) {
+        inx <- which(!is.na(surv));
+    } else {
+        inx <- which(surv <= duration);
+    }
+
+    if (length(inx) > 0) {
+        ##avoid inf when y is all NA
+        if (all(is.na(y))) {
+            min.y <- 0;
+        } else {
+            min.y <- min(y, na.rm=TRUE);
+        }
+
+        rst[inx] <-  min.y - max(surv, na.rm=TRUE) - 1000 + surv[inx];
     }
     rst
 }

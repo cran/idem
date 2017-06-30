@@ -6,9 +6,6 @@
 #' @inheritParams imPlotCompleters
 #' @inheritParams imPlotImputed
 #'
-#' @param offset A constant value to be added to survival days for reporting the
-#'     median value
-#'
 #' @param quantiles Quantiles of the composite endpoint to be reported
 #'
 #' @param ... Options for ranking subjects using the composite endpoint
@@ -38,7 +35,6 @@
 #' @export
 #'
 imEstimate <- function(imp.rst,
-                       offset=10000,
                        quantiles=0.5,
                        ...) {
 
@@ -95,13 +91,18 @@ imEstimate <- function(imp.rst,
     colnames(rst.rank)   <- c("Imputation", "Delta0", "Delta1", "Theta");
 
     ##median of median
-    dfmedian                <- data.frame(rst.median);
-    inx                     <- which(dfmedian$QuantSurv <= lst.var$duration);
-    dfmedian[inx, 'QuantY'] <- -offset + dfmedian[inx, 'QuantSurv'];
-    median.median           <- sqldf('select Delta, Trt, Q,
-                                      median(QuantY) as Quant
-                                      from dfmedian
-                                      group by Delta, TRT, Q');
+    dfmedian       <- data.frame(rst.median);
+    dfmedian$Quant <- get.comp(dfmedian$QuantY, dfmedian$QuantSurv, lst.var$duration);
+    dfmedian       <- sqldf('select * from dfmedian order by Delta, Trt, Q, Quant');
+    inx.median     <- ceiling(n.imp/2);
+    median.median  <- dfmedian[seq(inx.median, nrow(dfmedian), by=n.imp),
+                               c("Delta", "TRT", "Q", "QuantY", "QuantSurv")];
+
+    inx.2 <- which(median.median$QuantSurv <= lst.var$duration);
+    if (length(inx.2) > 0) {
+        median.median[inx.2,  "QuantY"]    <- NA;
+        median.median[-inx.2, "QuantSurv"] <- NA;
+    }
 
     ##average rank
     dfrank  <- data.frame(rst.rank);
@@ -174,7 +175,6 @@ imBs <- function(imp.rst,
                  n.boot = 100,
                  n.cores = 1,
                  update.progress=NULL,
-                 offset=10000,
                  quantiles=0.5
                  ) {
 
@@ -185,7 +185,7 @@ imBs <- function(imp.rst,
     stopifnot(!is.null(imp.rst$org.data));
 
     ##original result
-    rst.org <- imEstimate(imp.rst, quantiles=quantiles, offset=offset);
+    rst.org <- imEstimate(imp.rst, quantiles=quantiles);
 
     data.all  <- imp.rst$org.data;
     lst.var   <- imp.rst$lst.var;
@@ -201,7 +201,6 @@ imBs <- function(imp.rst,
 
     rst <- parallel::mclapply(1:n.boot,
                               function(x) {
-
                          if ("PROGRESS" %in% toupper(class(update.progress)))
                              update.progress$set(value=x/n.boot,
                                                  detail=paste("Bootstrap", x, sep=" "));
@@ -212,8 +211,7 @@ imBs <- function(imp.rst,
                                          n.imp=n.imp,
                                          normal=normal,
                                          stan.par=stan.par,
-                                         quantiles=quantiles,
-                                         offset=offset);
+                                         quantiles=quantiles);
                      }, mc.cores=n.cores);
 
     rst        <- c(list(rst.org), rst);
@@ -278,35 +276,63 @@ imBs <- function(imp.rst,
 #'
 imTest <- function(bs.rst, quantiles=c(0.025, 0.975)) {
 
-
     stopifnot(class(bs.rst) == get.const("BOOT.CLASS"));
 
     rst.org  <- bs.rst[[1]];
     rst.boot <- bs.rst[-1];
 
     ##bootstrap
-    meta  <- rep(list(NULL),3);
-    rst   <- rep(list(NULL),3);
+    meta  <- rep(list(NULL), 2);
+    rst   <- rep(list(NULL), 2);
     for (i in 1:length(rst.boot)) {
         cur.rank <- rst.boot[[i]]$theta;
-        cur.med  <- rst.boot[[i]]$quantiles;
         cur.surv <- rst.boot[[i]]$survivor;
 
         if (1 == i) {
             meta[[1]] <- cur.rank[, -ncol(cur.rank)];
-            meta[[2]] <- cur.med[,  -ncol(cur.med)];
-            meta[[3]] <- cur.surv[, -ncol(cur.surv)];
+            meta[[2]] <- cur.surv[, -ncol(cur.surv)];
         }
 
         rst[[1]] <- cbind(rst[[1]], cur.rank[,ncol(cur.rank)]);
-        rst[[2]] <- cbind(rst[[2]], cur.med[,ncol(cur.med)]);
-        rst[[3]] <- cbind(rst[[3]], cur.surv[,ncol(cur.surv)]);
+        rst[[2]] <- cbind(rst[[2]], cur.surv[,ncol(cur.surv)]);
+    }
+    rsd   <- cbind(meta[[1]], SD=apply(rst[[1]], 1, sd));
+    rsurv <- cbind(meta[[2]], SD=apply(rst[[2]], 1, sd));
+
+    rst.qs  <- array(NA, dim=c(nrow(rst.boot[[1]]$quantiles),
+                               length(rst.boot),
+                               2));
+    for (i in 1:length(rst.boot)) {
+        cur.med     <- rst.boot[[i]]$quantiles;
+        rst.qs[,i,] <- as.matrix(cur.med[, c("QuantY", "QuantSurv")]);
     }
 
-    rsd   <- cbind(meta[[1]], SD=apply(rst[[1]], 1, sd));
-    rqs   <- cbind(meta[[2]], t(apply(rst[[2]], 1, quantile, quantiles)));
-    rsurv <- cbind(meta[[3]], SD=apply(rst[[3]], 1, sd));
-    colnames(rqs)[4:5] <- c("LB", "UB");
+    rqs  <- NULL;
+    inxs <- ceiling(quantile(1:length(rst.boot), quantiles));
+    for (i in 1:nrow(rst.boot[[1]]$quantiles)) {
+        cur.qs  <- rst.qs[i,,];
+        cur.qsc <- get.comp(cur.qs[,1], cur.qs[,2]);
+        cur.ord <- order(cur.qsc);
+
+        cur.q   <- NULL;
+        cur.qi  <- NULL;
+        for (j in 1:length(inxs)) {
+            cur.i <- cur.ord[inxs[j]];
+            if (is.na(cur.qs[cur.i,1])) {
+                cur.q  <- c(cur.q,  cur.qs[cur.i, 2]);
+                cur.qi <- c(cur.qi, 1);
+            } else {
+                cur.q  <- c(cur.q,  cur.qs[cur.i, 1]);
+                cur.qi <- c(cur.qi, 0);
+            }
+        }
+        names(cur.q)  <- paste("BSQ", quantiles*100, sep = "");
+        names(cur.qi) <- paste(names(cur.q), "_Surv", sep = "");
+        cur.rst       <- c(cur.q, cur.qi);
+        rqs           <- rbind(rqs, cur.rst);
+    }
+    row.names(rqs) <- NULL;
+    rqs            <- data.frame(rqs);
 
 
     ##original
@@ -324,11 +350,7 @@ imTest <- function(bs.rst, quantiles=c(0.025, 0.975)) {
                            function(x) { 2*min(pnorm(x[3],0,x[4]),
                                                1-pnorm(x[3],0,x[4]))});
     ##quantiles
-    rstquan <- sqldf("select a.*, b.lb, b.ub
-                      from omed a
-                      left join rqs b on (a.Delta = b.Delta and
-                                          a.TRT   = b.TRT   and
-                                          a.Q     = b.Q)");
+    rstquan        <- cbind(omed, rqs);
 
     ##survivors
     rstsurv <- sqldf("select a.delta0, a.delta1, a.diff, b.sd

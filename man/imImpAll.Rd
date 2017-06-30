@@ -67,3 +67,4 @@ rst.imp <- imImpAll(abc, rst.fit, deltas=c(-0.25,0,0.25),
                     normal=TRUE, chains = 2, iter = 2000, warmup = 1000);}
 
 }
+

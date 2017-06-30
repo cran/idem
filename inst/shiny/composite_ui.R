@@ -251,7 +251,7 @@ panel.visual <- function(){
                  plotOutput("outPlotSurv"),
                  align="center",
                  style="height:1000px"),
-        tabPanel("Completers",
+        tabPanel("Survivors",
         		 h6("**NOTE: The red line/points indicate the mean value of the outcome for each treatment group. Purple lines/points indicate subjects are missing at least one functional outcome measurement."),
                  plotOutput("outPlotComp"),
                  align="center",

@@ -2,8 +2,8 @@
 % Please edit documentation in R/idem_package.R
 \docType{package}
 \name{idem-package}
-\alias{idem-package}
 \alias{idem}
+\alias{idem-package}
 \title{Inference in Randomized Clinical Trials with Death and Missingness}
 \description{
 This package contains the functions for drawing inference in randomized
@@ -60,8 +60,8 @@ completers and \eqn{\beta_T} denotes the sensitivity parameter for arm \eqn{T}.
 This package provides a web-based GUI. See \code{\link{imShiny}} for
 details.
 }
-
 \references{
 Wang C, Scharfstein DO, Colantuoni E, Girard T, Yan Y (2016). Inference in
 Randomized Trials with Death and Missingness.
 }
+

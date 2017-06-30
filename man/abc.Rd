@@ -33,3 +33,4 @@ safety of a paired sedation and ventilator weaning protocol for mechanically
 ventilated patients in intensive care (awakening and breathing controlled
 trial): a randomised controlled trial. Lancet, 371:126-134, 2008.
 }
+

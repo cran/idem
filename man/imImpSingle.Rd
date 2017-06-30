@@ -52,3 +52,4 @@ rst.imp <- imImpSingle(abc[1,], rst.fit, chains = 4, iter = 2000, warmup = 1000)
 rstan::traceplot(rst.imp$rst.stan, "YMIS");
 
 }
+

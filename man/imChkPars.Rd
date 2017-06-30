@@ -31,3 +31,4 @@ err.lst.var <- list(trt="TRT", outcome=c("Y1","Y2"),
 imChkPars(abc, err.lst.var);
 
 }
+

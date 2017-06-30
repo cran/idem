@@ -319,7 +319,7 @@ imPlotSurv <- function(data.all,
          xlab=paste("Time (", unitTime,")", sep=''),
     		 ylab="Survival Probability",
          ylim=ylims,yaxt='n',
-         cex=1, conf.int=F, lty=c(1,1), lwd=2, col=cols,
+         cex=1, conf.int=F, lty=c(1,2), lwd=2, col=cols,
          mark.time=FALSE,
          main = 'Survival Curves');
 
@@ -334,7 +334,7 @@ imPlotSurv <- function(data.all,
 
     legend("topright",
            legend=c('Control','Intervention', sprintf("p-value = %5.3f",p.val)),
-           lty=c(1,1,0),
+           lty=c(1,2,0),
            col=c(cols,'black'),
            bty="n", cex=1.2);
 

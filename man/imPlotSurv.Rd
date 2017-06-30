@@ -29,3 +29,4 @@ lst.var <- list(trt="TRT", surv="SURV", outcome=c("Y1","Y2"),
 imPlotSurv(abc, lst.var);
 
 }
+

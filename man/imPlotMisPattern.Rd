@@ -30,3 +30,4 @@ lst.var <- list(trt="TRT", outcome=c("Y1","Y2"),
 imPlotMisPattern(abc, lst.var);
 
 }
+

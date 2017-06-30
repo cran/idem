@@ -4,14 +4,11 @@
 \alias{imEstimate}
 \title{Treatment effect estimation}
 \usage{
-imEstimate(imp.rst, offset = 10000, quantiles = 0.5, ...)
+imEstimate(imp.rst, quantiles = 0.5, ...)
 }
 \arguments{
 \item{imp.rst}{A class \code{IDEM.IMP} list containing complete data
 with relevant missing values imputed. See \code{\link{imImpAll}}.}
-
-\item{offset}{A constant value to be added to survival days for reporting the
-median value}
 
 \item{quantiles}{Quantiles of the composite endpoint to be reported}
 
@@ -45,3 +42,4 @@ rst.imp <- imImpAll(abc, rst.fit, lst.var, deltas=c(-0.25,0,0.25),
 rst.est <- imEstimate(rst.imp, quantiles=c(0.25,0.5,0.75));}
 
 }
+

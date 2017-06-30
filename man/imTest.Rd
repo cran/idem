@@ -60,3 +60,4 @@ rst.boot  <- imBs(rst.imp, n.boot = 10, n.cores = 5);
 rst.final <- imTest(rst.boot);}
 
 }
+
