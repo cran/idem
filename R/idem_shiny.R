@@ -1,8 +1,11 @@
 
 #' Run Web-Based \code{idem} application
 #'
-#' Call Shiny to run \code{idem} as a web-based application. A web browser will
-#' be brought up.
+#' Call Shiny to run \code{idem} as a web-based application.
+#'
+#' @details
+#'
+#' A web browser will be brought up for users to access the GUI of \code{idem}.
 #'
 #' @examples
 #' \dontrun{

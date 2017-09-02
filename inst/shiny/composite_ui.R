@@ -264,15 +264,17 @@ panel.visual <- function(){
 ##visulize data
 panel.fitting <- reactive({
     data.all <- get.data();
-    lst.var  <- get.variables();
+    if (is.null(data.all))
+        return(NULL);
 
-    a.trt    <- sort(unique(data.all[,lst.var$trt]));
+    lst.var <- data.all$lst.var;
+
+    a.trt <- get.trt();
     ## need to change if more than two treatment groups or the convention of TRT=0/TRT=1 changes
     trt.names <- c('Control','Intervention')
 
-    rst      <- list(widths=c(2,10));
+    rst <- list(widths=c(2,10));
     for (i in 1:length(a.trt)) {
-                                        # rst[[length(rst)+1]] <- paste(lst.var$trt, "=", a.trt[i], sep="");
         rst[[length(rst)+1]] <- trt.names[i]
         for (j in 1:length(lst.var$outcome)) {
             lbl <- paste(lst.var$outcome[j],"|",sep="");
@@ -307,9 +309,9 @@ panel.fitting <- reactive({
                  two regression models for each treatment group; a model for the 6-month
                  outcome conditioning on baseline covariates and a model for the 12-month
                  outcome conditioning on the 6-month outcome and baseline covariates.<br><br>
-                  For each fitted model, we summarize the model and present basic model
-                  diagnostics including a residuals vs. fitted plot and a normal quantile plot
-                  to assess the distribution of residuals.'),
+                 For each fitted model, we summarize the model and present basic model
+                 diagnostics including a residuals vs. fitted plot and a normal quantile plot
+                 to assess the distribution of residuals.'),
         rst
   )
 })
@@ -378,14 +380,15 @@ panel.config <- reactive({
                                   will be computed. Below enter additional percentiles of
                                   the composite variable you would like to obtain."),
                              textInput("inExtras", label="", value=c("25,75"))),
-                      column(3,
-                             h6('SACE Sensitivity Parameter (separate by comma,
-                                  values <= 0 are valid). Default values set such that
-                                  the range of the sensitivity parameter ranges from 0 to
-                                  minus one-half standard deviation of the distribution of
-                                  functional endpoints among subjects who do not require
-                                  their data to be imputed.'),
-                             textInput("inSACE", label="", value=get.sd.endp(outVar='SACE')))
+                      column(3
+                             ##h6('SACE Sensitivity Parameter (separate by comma,
+                             ##     values <= 0 are valid). Default values set such that
+                             ##     the range of the sensitivity parameter ranges from 0 to
+                             ##     minus one-half standard deviation of the distribution of
+                             ##     functional endpoints among subjects who do not require
+                             ##     their data to be imputed.'),
+                             ##textInput("inSACE", label="", value=get.sd.endp(outVar='SACE'))
+                             )
                   )),
         wellPanel(
             h4("Convergence Checking"),
@@ -427,11 +430,11 @@ panel.trace <- reactive({
 panel.impute <- reactive({
     list(
         wellPanel(
-            actionButton("btnImpute", "Get Imputed Data", style="info", width='250px'),
+            actionButton("btnImpute", "Benchmark Assumption Imputation", style="info", width='280px'),
             uiOutput('uiImpRst')
         ),
         wellPanel(
-            actionButton("btnBoot", "Hypothesis Testing by Bootstrap", style="info", width='250px'),
+            actionButton("btnBoot", "Hypothesis Testing by Bootstrap", style="info", width='280px'),
             uiOutput('uiBootrst')
         ))
 })
@@ -539,19 +542,17 @@ observe ({
 })
 
 
-##read data from user input
-get.data <- reactive({
-    userLog$data;
-})
-
 ##get the list of variables in model specification
 get.variables <- reactive({
 
     if (is.null(input$btnValid))
         return(NULL);
 
+    if (is.null(input$inRdo1))
+        return(NULL);
+
     isolate({
-        cur.data <- get.data();
+        cur.data <- userLog$data;
         if (is.null(cur.data))
             return(NULL);
 
@@ -589,12 +590,48 @@ get.variables <- reactive({
         rst})
 })
 
-##validate model
-get.model.valid <- reactive({
-    cur.data <- get.data();
-    chk.nv   <- get.variables();
-    rst      <- imChkPars(cur.data, chk.nv,  html=TRUE);
+##get mcmc setup
+get.mcmc.par <- reactive({
+    rst <- list(iter=input$mcmciter,
+                warmup=input$mcmcburnin,
+                thin=input$mcmcthin,
+                chains=input$mcmcchain,
+                control=list(adapt_delta = input$mcmcdelta,
+                             stepsize    = input$mcmcstepsize));
+    rst
 })
+
+
+##read data from user input
+get.data <- reactive({
+    lst.var <- get.variables();
+    if (is.null(userLog$data) | is.null(lst.var))
+        return(NULL);
+
+    rst <- do.call(imData, c(list(userLog$data), lst.var));
+
+    if ("IDEMERROR" %in% class(rst)) {
+        return(NULL);
+    } else {
+        return(rst);
+    }
+})
+
+get.model.valid <- reactive({
+    lst.var <- get.variables();
+
+    if (is.null(userLog$data) | is.null(lst.var))
+        return(null);
+
+    rst <- do.call(imData, c(list(userLog$data), lst.var));
+
+    if ("IDEMERROR" %in% class(rst)) {
+        return(rst);
+    } else {
+        return(NULL);
+    }
+})
+
 
 ##fit regression model to the original data
 get.fit.rst <- reactive({
@@ -602,9 +639,11 @@ get.fit.rst <- reactive({
         return(NULL);
 
     data.all <- get.data();
-    lst.var  <- get.variables();
-    a.trt    <- get.trt();
-    rst      <- imFitModel(data.all, lst.var);
+
+    if (is.null(data.all))
+        return(NULL);
+
+    rst  <- imFitModel(data.all);
     rst
 })
 
@@ -614,12 +653,23 @@ get.trt <- reactive({
         return(NULL);
 
     data.all <- get.data();
-    lst.var  <- get.variables();
-    if (is.null(data.all) | is.null(lst.var))
+
+    if (is.null(data.all))
         return(NULL);
-    rst <- sort(unique(data.all[,lst.var$trt]));
-    rst
+
+    rst <- summary(data.all, opt = "trt");
 })
+
+
+get.imp.inx <- reactive({
+    data.all <- get.data();
+
+    if (is.null(data.all))
+        return(NULL);
+
+    summary(data.all, opt = "missid");
+})
+
 
 ##get sensivity paramters
 get.deltas <- reactive({
@@ -648,72 +698,10 @@ get.extras <- reactive({
 ## get time of outcomes
 get.TimeOut <- reactive({
     vars <- get.variables();
-    rst <- NULL;
-    rst <- as.numeric(substr(vars$outcome, 2, nchar(vars$outcome)));
+    rst  <- as.numeric(substr(vars$outcome, 2, nchar(vars$outcome)));
     rst
 })
 
-## get standard deviation of functional endpoint -- used to populate configuration
-get.sd.endp <- function(out.len = 3, sdPct = 0.1, outVar){
-    rst     <- get.data();
-    lst.var <- get.variables();
-
-    eval(parse(text=paste("endp <- with(rst, {", lst.var$endfml,"})")));
-
-    width <- sdPct*sd(endp, na.rm=TRUE);
-    if(outVar == 'SACE')
-        rst <- seq(-width, 0, len = out.len)
-    if(outVar == 'ImpSens')
-        rst <- seq(-width/2, width/2, len = out.len)
-
-    rst <- paste(sprintf("%5.2f", rst),
-                 collapse=",",
-                 sep='');
-    rst
-}
-
-##get imputated complete datasets using the original dataset
-get.imputed.full <- reactive({
-
-    if (is.null(input$btnImpute))
-        return(NULL);
-
-    if (0 == input$btnImpute)
-        return(NULL);
-
-    isolate({
-        data.all <- get.data();
-        fit.rst  <- get.fit.rst();
-        deltas   <- get.deltas();
-        mcmc.par <- get.mcmc.par();
-        normal   <- as.numeric(input$inNorm);
-
-        if (any(is.null(c(data.all, deltas, fit.rst))))
-            return(NULL);
-
-        ##Create a Progress object
-        progress <- shiny::Progress$new(session, min=0, max=1);
-        progress$set(message = "Imputing...", value=0);
-        ##Close the progress when this reactive exits (even if there's an error)
-        on.exit(progress$close());
-
-        set.seed(as.numeric(input$inSeed));
-        imp.full <- imImpAll(data.all,
-                             fit.rst,
-                             deltas=deltas,
-                             normal=input$inNorm,
-                             n.imp=input$inNImp,
-                             chains=mcmc.par$chains,
-                             iter=mcmc.par$iter,
-                             warmup=mcmc.par$warmup,
-                             thin=mcmc.par$thin,
-                             control=mcmc.par$control,
-                             seed=input$inSeed,
-                             update.progress=progress);
-    });
-
-    imp.full;
-})
 
 ##get mcmc samples for convergence checking
 get.imputed.mcmc <- reactive({
@@ -721,21 +709,21 @@ get.imputed.mcmc <- reactive({
         return(NULL);
 
     isolate({
-        data.all <- get.data();
         fit.rst  <- get.fit.rst();
         mcmc.par <- get.mcmc.par();
         normal   <- as.numeric(input$inNorm);
 
-        if (any(is.null(c(data.all, fit.rst))))
+        if (any(is.null(c(fit.rst))))
             return(NULL);
 
         imp.inx <- get.imp.inx();
+        print(imp.inx);
         if (0 == length(imp.inx))
             return(NULL);
         cur.smp <- sample(imp.inx, 1);
 
-        rst <- imImpSingle(data.all[cur.smp,],
-                           fit.rst,
+        rst <- imImpSingle(dsub = fit.rst$im.data$data[cur.smp,],
+                           fit.rst = fit.rst,
                            normal=normal,
                            chains=mcmc.par$chains,
                            iter=mcmc.par$iter,
@@ -743,22 +731,21 @@ get.imputed.mcmc <- reactive({
                            thin=mcmc.par$thin,
                            control=mcmc.par$control,
                            seed=input$inSeed);
-        rst
     })
+    rst
 })
 
 
 ##get rank median for the original
 get.rst.orig <- reactive({
-    imp.data <- get.imputed.full();
-    extras   <- get.extras();
+    if (is.null(input$btnImpute))
+        return(NULL);
 
+    imp.data <- get.imputed.full();
     if (is.null(imp.data))
         return(NULL);
 
-    rst <- imEstimate(imp.data,
-                      quantiles = extras);
-    rst
+    rst <- imInfer(imp.data, n.boot = 0, quantiles = get.extras());
 })
 
 ##get bootstrap results
@@ -780,41 +767,74 @@ get.rst.boot <- reactive({
         ##Close the progress when this reactive exits (even if there's an error)
         on.exit(progress$close());
 
-        rst <- imBs(imp.rst,
-                    n.boot=n.boot,
-                    n.core=nCores,
-                    update.progress=progress);
-
+        rst <- imInfer(imp.rst,
+                       n.boot=n.boot,
+                       n.core=nCores,
+                       update.progress=progress);
     });
     rst
 })
 
-##get overall result
-get.rst.overall <- reactive({
-    boot.rst <- get.rst.boot();
 
-    if (is.null(boot.rst))
+## get standard deviation of functional endpoint -- used to populate configuration
+get.sd.endp <- function(out.len = 3, sdPct = 0.1, outVar){
+    data.all <- get.data();
+    if (! "IDEMDATA" %in% class(data.all))
         return(NULL);
 
-    rst <- imTest(boot.rst);
+    eval(parse(text=paste("endp <- with(data.all$data, {",
+                          data.all$lst.var$endfml,"})")));
+
+    width <- sdPct*sd(endp, na.rm=TRUE);
+    if(outVar == 'SACE')
+        rst <- seq(-width, 0, len = out.len)
+    if(outVar == 'ImpSens')
+        rst <- seq(-width/2, width/2, len = out.len)
+
+    rst <- paste(sprintf("%5.2f", rst),
+                 collapse=",",
+                 sep='');
     rst
-})
+}
 
 
-##get mcmc setup
-get.mcmc.par <- reactive({
-    rst <- list(iter=input$mcmciter,
-                warmup=input$mcmcburnin,
-                thin=input$mcmcthin,
-                chains=input$mcmcchain,
-                control=list(adapt_delta = input$mcmcdelta,
-                             stepsize    = input$mcmcstepsize));
-    rst
-})
+##get imputated complete datasets using the original dataset
+get.imputed.full <- reactive({
 
+    if (is.null(input$btnImpute))
+        return(NULL);
 
-get.imp.inx <- reactive({
-    data.all <- get.data();
-    lst.var  <- get.variables();
-    imNeedImp(data.all, lst.var);
+    if (0 == input$btnImpute & 0 == input$btnBoot)
+        return(NULL);
+
+    isolate({
+        fit.rst  <- get.fit.rst();
+        deltas   <- get.deltas();
+        mcmc.par <- get.mcmc.par();
+        normal   <- as.numeric(input$inNorm);
+
+        if (any(is.null(c(deltas, fit.rst))))
+            return(NULL);
+
+        ##Create a Progress object
+        progress <- shiny::Progress$new(session, min=0, max=1);
+        progress$set(message = "Imputing...", value=0);
+        ##Close the progress when this reactive exits (even if there's an error)
+        on.exit(progress$close());
+
+        set.seed(as.numeric(input$inSeed));
+        imp.full <- imImpAll(fit.rst,
+                             deltas=deltas,
+                             normal=input$inNorm,
+                             n.imp=input$inNImp,
+                             chains=mcmc.par$chains,
+                             iter=mcmc.par$iter,
+                             warmup=mcmc.par$warmup,
+                             thin=mcmc.par$thin,
+                             control=mcmc.par$control,
+                             seed=input$inSeed,
+                             update.progress=progress);
+    })
+
+    imp.full
 })

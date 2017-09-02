@@ -8,8 +8,8 @@
 #' @importFrom rstan sampling extract stanc
 #' @importFrom grDevices colors pdf dev.off grey
 #' @importFrom graphics axis box legend lines par plot points text contour
-#'     filled.contour grid rect
-#' @importFrom utils read.table
+#'     filled.contour grid rect abline
+#' @importFrom utils read.table tail
 #' @importFrom sqldf sqldf
 #' @importFrom parallel detectCores mclapply
 #'
@@ -75,57 +75,6 @@
 NULL
 
 
-#' List of parameters for \code{idem} analysis
-#'
-#' @name idem-parameters
-#'
-#' @description
-#'
-#' The parameters used by most of the functions in \code{idem} are organized as
-#' a list. These parameters include variable names in the analysis dataset,
-#' endpoint specification, duration of the study, etc..
-#'
-#' @param trt Variable name for the Control (0) and Intervention (1) treatment
-#'     assignments in the dataset.
-#'
-#' @param surv Variable name for the survival (time to event) variable in the
-#'     dataset.
-#'
-#' @param outcome Chronologically ordered vector of variable names for clinical
-#'     outcomes in the dataset excluding baseline.
-#'
-#' @param y0 Variable name of the baseline clinical outcome.
-#'
-#'
-#' @param cov Vector of variable names for the covariates used in the imputation
-#'     procedure for missing clinical outcomes.
-#'
-#' @param endfml \code{R} expression indicating the user-specified final outcome of
-#'     interest. This is the function for \eqn{Z} of one or more of \eqn{Y_k}'s.
-#'
-#' @param duration Length of the study. This is the time at which subjects' are
-#'     assumed to be censored.
-#'
-#' @param bounds Numeric vector of lower and upper bounds for subjects' imputed
-#'     clinical outcomes.
-#'
-#' @param trt.label label of the treatment arms
-#'
-#' @param unitTime Unit of time measurement for survival and function outcome time points
-#'
-#' @examples
-#'
-#' ## for example abc dataset
-#'
-#' lst.var <- list(trt="TRT", surv="SURV", outcome=c("Y1","Y2"),
-#'                 y0=NULL, endp=c("Y2"),
-#'                 trt.label = c("UC+SBT", "SAT+SBT"),
-#'                 cov=c("AGE"), endfml="Y2",
-#'                 duration=365, bounds=c(0,100));
-#'
-#'
-NULL
-
 #' Example dataset
 #'
 #' @description The Awakening and Breathing Controlled (ABC) trial randomized critically ill
@@ -137,8 +86,7 @@ NULL
 #'
 #' The example dataset is from a single site substudy in ABC. The researchers
 #' assessed differences in cognitive, psychological and functional outcomes at 3
-#' and 12 months after randomization. ,
-#' respectively).
+#' and 12 months after randomization.
 #'
 #' @name abc
 #'

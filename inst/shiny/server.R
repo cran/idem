@@ -69,7 +69,7 @@ shinyServer(function(input, output, session) {
     ##--display data uploaded-----
     output$uiData <- DT::renderDataTable({
         if (input$displaydata) {
-            get.data();
+            userLog$data;
         }
     }, rownames=NULL, selection="none", options=list(pageLength=50))
 
@@ -79,7 +79,7 @@ shinyServer(function(input, output, session) {
 
     ##--model specification------
     output$uiPanelModel <- renderUI({
-        if (is.null(get.data())) {
+        if (is.null(userLog$data)) {
             msg.box("Please upload data first.", "warning");
         } else {
             panel.model();
@@ -88,9 +88,8 @@ shinyServer(function(input, output, session) {
 
     ##----specify covarates------
     output$uiModel <- renderUI({
-        cur.data <- get.data();
-        if (!is.null(cur.data)) {
-            do.call(fluidPage, gen.radiobtn(names(cur.data)));
+        if (!is.null(userLog$data)) {
+            do.call(fluidPage, gen.radiobtn(names(userLog$data)));
         }
     })
 
@@ -105,7 +104,7 @@ shinyServer(function(input, output, session) {
                 rst <- msg.box("Model specification is valid.", "success");
                 userLog$model <- 0;
             } else {
-                rst <- msg.box(rst, "error");
+                rst <- msg.box(print(rst, html=TRUE), "error");
                 userLog$model <- -1;
             }
             HTML(rst)});
@@ -115,7 +114,7 @@ shinyServer(function(input, output, session) {
     ##-----------data visualization---------
     ##--------------------------------------
     output$uiVisual <- renderUI({
-        if (is.null(get.data())) {
+        if (is.null(userLog$data)) {
             msg.box("Please upload data first.", "warning");
         } else if (-1 == userLog$model) {
             msg.box("Please validate model first.", "warning");
@@ -126,23 +125,41 @@ shinyServer(function(input, output, session) {
 
     ##missing pattern
     output$outPlotMissing <- renderPlot({
-        imPlotMisPattern(get.data(), lst.var = get.variables());
+        data.all <- get.data();
+        if (is.null(data.all))
+            return(NULL);
+
+        plot(get.data(), opt = "missing", c("blue", "gray"));
+
     }, width=1000, height=600, bg="transparent");
 
     ##missng table
     output$outTblMissing <- renderTable({
-	     imMisTable(get.data(), lst.var = get.variables());
+        data.all <- get.data();
+        if (is.null(data.all))
+            return(NULL);
+
+	     summary(data.all, opt = "misstable" );
     })
 
     ##survival
     output$outPlotSurv <- renderPlot({
-        imPlotSurv(get.data(), lst.var = get.variables())
-        }, width=600, height=600, bg="transparent");
+        data.all <- get.data();
+        if (is.null(data.all))
+            return(NULL);
+
+        plot(data.all, opt = "KM");
+
+    }, width=600, height=600, bg="transparent");
 
 
     ##completers
     output$outPlotComp <- renderPlot({
-        imPlotCompleters(get.data(), lst.var = get.variables());
+        data.all <- get.data();
+        if (is.null(data.all))
+            return(NULL);
+        plot(data.all, opt = "survivor");
+
     }, width=1000, height=600, bg="transparent");
 
     ##--------------------------------------
@@ -150,7 +167,7 @@ shinyServer(function(input, output, session) {
     ##--------------------------------------
 
     output$uiFitting <- renderUI({
-        if (is.null(get.data())) {
+        if (is.null(userLog$data)) {
             msg.box("Please upload data first.", "warning");
         } else if (-1 == userLog$model) {
             msg.box("Please validate model first.", "warning");
@@ -191,7 +208,7 @@ shinyServer(function(input, output, session) {
     ##---------configuration----------------
     ##--------------------------------------
     output$uiConfig <- renderUI({
-        if (is.null(get.data())) {
+        if (is.null(userLog$data)) {
             msg.box("Please upload data first.", "warning");
         } else if (-1 == userLog$model) {
             msg.box("Please validate model first.", "warning");
@@ -222,7 +239,9 @@ shinyServer(function(input, output, session) {
         mcmc.rst <- get.imputed.mcmc();
         if (is.null(mcmc.rst))
             return(NULL);
-        rstan::traceplot(mcmc.rst$rst.stan, "YMIS");
+
+        plot(mcmc.rst);
+
     }, bg="transparent")
 
     ##progress bar
@@ -235,7 +254,7 @@ shinyServer(function(input, output, session) {
     ##--------------------------------------
 
     output$uiImpute <- renderUI({
-        if (is.null(get.data())) {
+        if (is.null(userLog$data)) {
             msg.box("Please upload data first.", "warning");
         } else if (-1 == userLog$model) {
             msg.box("Please validate model first.", "warning");
@@ -268,8 +287,9 @@ shinyServer(function(input, output, session) {
         if (any(is.null(c(imp.data, deltas))))
             return(NULL);
 
-        imPlotImputed(imp.data,
-                      deltas = sort(unique(c(0, range(deltas)))));
+        plot(imp.data,
+             deltas = sort(unique(c(0, range(deltas)))));
+
     }, width=800, height=800, bg="transparent")
 
     ##density of imputed individual endpoint
@@ -280,9 +300,10 @@ shinyServer(function(input, output, session) {
         if (any(is.null(c(imp.data,deltas))))
             return(NULL);
 
-        imPlotImputed(imp.data,
-                      deltas = sort(unique(c(0, range(deltas)))),
-                      endp=TRUE);
+        plot(imp.data,
+             deltas = sort(unique(c(0, range(deltas)))),
+             endp=TRUE);
+
     }, width=800, height=400, bg="transparent")
 
 
@@ -309,7 +330,9 @@ shinyServer(function(input, output, session) {
         imp.data <- get.imputed.full();
         if (is.null(imp.data))
             return(NULL);
-        imPlotComposite(imp.data);
+
+        plot(imp.data, opt = "composite");
+
     }, width=800, height=400, bg="transparent");
 
     ##rank text
@@ -392,7 +415,7 @@ shinyServer(function(input, output, session) {
     output$outTblBootTheta <- renderTable({
         if (0 == input$btnBoot)
             return(NULL);
-        rst <- get.rst.overall();
+        rst <- get.rst.boot();
         rst$theta;
     },
     include.rownames=TRUE,
@@ -406,9 +429,8 @@ shinyServer(function(input, output, session) {
     output$outTblBootQuantiles <- renderTable({
         if (0 == input$btnBoot)
             return(NULL);
-        rst <- get.rst.overall();
-
-        rst$quantiles;
+        rst <- get.rst.boot();
+        rst$effect.quantiles;
 
     }, include.rownames=TRUE,
     caption = 'Table: Quantiles of Compositve Variable',
@@ -419,8 +441,8 @@ shinyServer(function(input, output, session) {
     output$outBootContourRank <- renderPlot({
         if (0 == input$btnBoot)
             return(NULL);
-        rst <- get.rst.overall();
-        imPlotContour(rst, plot.title="");
+        rst <- get.rst.boot();
+        plot(rst, plot.title="");
     },
     width=500,
     height=500,
@@ -430,7 +452,7 @@ shinyServer(function(input, output, session) {
     ##----------Report----------------------
     ##--------------------------------------
     output$uiReport <- renderUI({
-        if (is.null(get.data())) {
+        if (is.null(userLog$data)) {
             msg.box("Please upload data first.", "warning");
         } else if (-1 == userLog$model) {
             msg.box("Please validate model first.", "warning");

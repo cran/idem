@@ -5,70 +5,59 @@ set.seed(1000);
 ## ---- eval=T, echo=TRUE--------------------------------------------------
 head(abc);
 
-## ---- echo=TRUE, eval=T--------------------------------------------------
- err.lst.var <- list(trt="TRT", outcome=c("Y1","Y2"),
-                 y0=NULL, endfml="Y2", bounds=c(10,20),
-                 duration=365);
- cat(imChkPars(abc, err.lst.var));
+## ---- echo=TRUE, fig.width=6, fig.height=5-------------------------------
+rst.data <- imData(abc, trt="TRT", outcome=c("Y1","Y2"), y0=NULL,
+                   endfml="Y3", bounds=c(10,20), duration=365);
+print(rst.data);
+
+rst.data <- imData(abc, trt="TRT", surv="SURV", outcome=c("Y1","Y2"),
+                   y0=NULL, endfml="Y2",
+                   trt.label = c("UC+SBT", "SAT+SBT"),
+                   cov=c("AGE"), duration=365, bounds=c(0,100));
 
 ## ---- echo=TRUE, fig.width=6, fig.height=5-------------------------------
-lst.var <- list(trt="TRT", surv="SURV", outcome=c("Y1","Y2"), y0=NULL,
-                endp=c("Y2"), unitTime="days",
-                trt.label = c("UC+SBT", "SAT+SBT"),
-                cov=c("AGE"), endfml="Y2", duration=365, bounds=c(0,100));
-
-imPlotCompleters(abc, lst.var);
+plot(rst.data, opt = "survivor");
 
 ## ---- echo=TRUE----------------------------------------------------------
-imMisTable(abc, lst.var);
+summary(rst.data, opt = "misstable");
 
 ## ---- echo=TRUE, fig.width=6, fig.height=5-------------------------------
-imPlotMisPattern(abc, lst.var);
+plot(rst.data, opt = "missing", cols = c("blue", "gray"));
 
 ## ---- echo=TRUE, fig.width=6, fig.height=5-------------------------------
-imPlotSurv(abc, lst.var);
+plot(rst.data, opt = "KM");
 
 ## ---- echo=TRUE, fig.width=6, fig.height=5-------------------------------
-rst.fit <- imFitModel(abc, lst.var);
+rst.fit <- imFitModel(rst.data);
+
+## ---- echo=TRUE, fig.width=6, fig.height=5-------------------------------
+plot(rst.fit, mfrow=c(2,4));
 
 ## ---- echo=TRUE, fig.width=6, fig.height=5-------------------------------
 rst.mixing <- imImpSingle(abc[1,], rst.fit, chains = 4, iter = 2000, warmup = 1000);
-rstan::traceplot(rst.mixing$rst.stan, "YMIS");
+plot(rst.mixing);
 
 ## ---- echo=TRUE, results="hide"------------------------------------------
-rst.imp <- imImpAll(abc, rst.fit, deltas=c(-0.25,0,0.25),
+rst.imp <- imImpAll(rst.fit, deltas=c(-0.25,0,0.25),
                     normal=TRUE, chains = 4, iter = 300, warmup = 100);
 
-
-## ---- echo=TRUE----------------------------------------------------------
-tail(rst.imp$complete, n=10);
+rst.imp
 
 ## ---- echo=TRUE, fig.width=6, fig.height=5-------------------------------
-imPlotImputed(rst.imp, deltas = c(-0.25,0,0.25), xlim=c(0,100), endp=FALSE);
+plot(rst.imp, opt = "imputed", deltas = c(-0.25,0,0.25), xlim=c(0,100), endp=FALSE);
 
 ## ---- echo=TRUE, fig.width=6, fig.height=5-------------------------------
-imPlotImputed(rst.imp, deltas=c(-0.25,0,0.25), xlim=c(0,100), endp=TRUE);
+plot(rst.imp, opt = "imputed", deltas = c(-0.25,0,0.25), xlim=c(0,100), endp=TRUE);
 
 ## ---- echo=TRUE, fig.width=6, fig.height=5-------------------------------
-imPlotComposite(rst.imp, delta=0);
+plot(rst.imp, delta=0);
 
 ## ---- echo=TRUE----------------------------------------------------------
-rst.est <- imEstimate(rst.imp, quantiles=c(0.25,0.5,0.75));
-print(rst.est$theta);
-print(rst.est$quantiles);
-
-## ---- echo=TRUE----------------------------------------------------------
-rst.boot <- imBs(rst.imp,
-                 n.boot = 2,
-                 n.cores = 1,
-                 quantiles = c(0.25,0.5,0.75));
-
-## ---- echo=TRUE----------------------------------------------------------
-rst.final <- imTest(rst.boot);
-print(rst.final);
+rst.test <- imInfer(rst.imp, n.boot = 2);
+rst.test
 
 ## ---- echo=TRUE, fig.width=6, fig.height=5-------------------------------
-imPlotContour(rst.final, nlevels = 30, con.v=0.05, zlim=c(0, 0.05));
+plot(rst.test, nlevels = 30, con.v=0.05, zlim=c(0, 0.05));
 
 ## ---- echo=TRUE, eval=FALSE----------------------------------------------
 #  imShiny();

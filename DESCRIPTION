@@ -1,7 +1,7 @@
 Package: idem
 Title: Inference in Randomized Controlled Trials with Death and
         Missingness
-Version: 2.2
+Version: 3.0
 Author: Chenguang Wang [aut, cre],
     Andrew Leroux [aut, cre],
     Elizabeth Colantuoni [aut],
@@ -30,6 +30,6 @@ RoxygenNote: 5.0.1
 Suggests: knitr, shiny, rmarkdown, pander, DT, shinythemes
 VignetteBuilder: knitr
 NeedsCompilation: yes
-Packaged: 2017-06-30 11:11:47 UTC; cwang68
+Packaged: 2017-09-02 01:38:31 UTC; cwang68
 Repository: CRAN
-Date/Publication: 2017-06-30 13:30:33 UTC
+Date/Publication: 2017-09-02 06:24:04 UTC

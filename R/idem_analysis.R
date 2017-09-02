@@ -1,373 +1,240 @@
-#' Treatment effect estimation
+#' Treatment effect estimation and hypothesis testing
 #'
-#' Estimate treatment effect and median of the composite endpoint from using
-#' imputed data
+#' Estimate treatment effect size. Estimate variation and conduct hypothesis
+#' testing by bootstrap analysis.
 #'
-#' @inheritParams imPlotCompleters
-#' @inheritParams imPlotImputed
-#'
-#' @param quantiles Quantiles of the composite endpoint to be reported
-#'
-#' @param ... Options for ranking subjects using the composite endpoint
-#' \describe{
-#' \item{cut.z}{Clinically meaningful difference in the functional outcome}
-#' \item{cut.surv}{Clinically meaningful difference in survival time}}
-#'
-#' @return A class \code{IDEM.RST} list contains
-#' \describe{
-#' \item{list.var}{List of parameters}
-#' \item{theta}{A dataset with columns \code{Delta0}, \code{Delta1}, \eqn{\hat{\theta}}}
-#' \item{quantiles}{ A dataset with columns \code{Delta}, \code{Trt}, \code{Quantiles}}
-#' \item{survivor}{A dataset for survivors with columns \code{Delta0}, \code{Delta1}, \code{Mean0},
-#' \code{Mean1}, \code{Diff}}}
-#'
-#' @examples
-#' \dontrun{
-#' lst.var <- list(trt="TRT", surv="SURV", outcome=c("Y1","Y2"), y0=NULL,
-#'                 endp=c("Y2"), unitTime="days",
-#'                 trt.label = c("UC+SBT", "SAT+SBT"),
-#'                 cov=c("AGE"), endfml="Y2", duration=365, bounds=c(0,100));
-#' rst.fit <- imFit(abc, lst.var);
-#' rst.imp <- imImpAll(abc, rst.fit, lst.var, deltas=c(-0.25,0,0.25),
-#'                     normal=TRUE, iter=300, n.imp=2, thin=10, p.scale=10);
-#' rst.est <- imEstimate(rst.imp, quantiles=c(0.25,0.5,0.75));}
-#'
-#' @export
-#'
-imEstimate <- function(imp.rst,
-                       quantiles=0.5,
-                       ...) {
-
-    if (is.null(imp.rst))
-        return(NULL);
-
-    stopifnot(any(class(imp.rst) == get.const("IMP.CLASS")));
-
-    lst.var  <- imp.rst$lst.var;
-    imp.data <- imp.rst$complete;
-    deltas   <- imp.rst$deltas;
-    n.imp    <- imp.rst$n.imp;
-
-    vtrt     <- lst.var$trt;
-    duration <- lst.var$duration;
-    vsurv    <- lst.var$surv;
-
-    ##trt arms
-    atrt <- sort(unique(imp.data[, vtrt]));
-
-    ##not imputed subjects
-    sub.noimp   <- imp.data[is.na(imp.data$IMP),,drop=FALSE];
-    ready.noimp <- get.data.ready(sub.noimp, lst.var, atrt);
-
-    rst.median   <- NULL;
-    rst.rank     <- NULL;
-    for (i in 1:n.imp) {
-        tmp.lst <- rep(list(NULL), length(deltas));
-        for (j in 1:length(deltas)) {
-            cur.data     <- subset(imp.data, imp.data$DELTA == deltas[j] & imp.data$IMP == i);
-            cur.ready    <- get.data.ready(cur.data, lst.var, atrt);
-            tmp.lst[[j]] <- rep(list(NULL), length(atrt));
-
-            for (k in 1:length(atrt)) {
-                tmp.lst[[j]][[k]] <- rbind(ready.noimp[[k]], cur.ready[[k]]);
-                c.med             <- get.median(tmp.lst[[j]][[k]], duration, quantiles=quantiles, ...);
-                rst.median        <- rbind(rst.median,
-                                           cbind(i, deltas[j], atrt[k], c.med));
-            }
-        }
-
-        for (t1 in 1:length(deltas)) {
-            for (t2 in 1:length(deltas)) {
-                cur.rank <- c.rankall(tmp.lst[[t1]][[1]],
-                                      tmp.lst[[t2]][[2]],
-                                      duration, ...);
-                rst.rank <- rbind(rst.rank,
-                                  c(i, deltas[t1], deltas[t2], cur.rank));
-            }
-        }
-    }
-
-    colnames(rst.median) <- c("Imputation", "Delta", "TRT", "Q", "QuantSurv", "QuantY");
-    colnames(rst.rank)   <- c("Imputation", "Delta0", "Delta1", "Theta");
-
-    ##median of median
-    dfmedian       <- data.frame(rst.median);
-    dfmedian$Quant <- get.comp(dfmedian$QuantY, dfmedian$QuantSurv, lst.var$duration);
-    dfmedian       <- sqldf('select * from dfmedian order by Delta, Trt, Q, Quant');
-    inx.median     <- ceiling(n.imp/2);
-    median.median  <- dfmedian[seq(inx.median, nrow(dfmedian), by=n.imp),
-                               c("Delta", "TRT", "Q", "QuantY", "QuantSurv")];
-
-    inx.2 <- which(median.median$QuantSurv <= lst.var$duration);
-    if (length(inx.2) > 0) {
-        median.median[inx.2,  "QuantY"]    <- NA;
-        median.median[-inx.2, "QuantSurv"] <- NA;
-    }
-
-    ##average rank
-    dfrank  <- data.frame(rst.rank);
-    avg.rank <- sqldf('select Delta0, Delta1, avg(Theta) as Theta
-                       from dfrank group by Delta1, Delta0');
-
-    ##survivor functional means
-    dalive       <- imp.data[imp.data[,vsurv] > duration, , drop=FALSE];
-    rst.survivor <- NULL;
-    if (nrow(dalive) > 0) {
-        ##there exist survivors
-        endp    <- get.const("TXT.ENDP");
-        txt.sql <- paste("select delta, trt, avg(endp) as Mean",
-                         "from (select distinct delta, ", vtrt, " as trt, ID,",
-                         "avg(", endp, ") as endp",
-                         "from dalive group by delta, ID) group by delta, trt",
-                         sep=" ");
-        survtrt    <- sqldf(txt.sql);
-        survtrt.t0 <- survtrt[seq(1, nrow(survtrt)-1, 2), c("delta", "Mean")];
-        survtrt.t1 <- survtrt[seq(2, nrow(survtrt), 2), c("delta", "Mean")];
-        ndelta     <- nrow(survtrt.t0);
-        rst.survivor <- cbind(survtrt.t0[ rep(1:ndelta, each = ndelta),],
-                              survtrt.t1[ rep(1:ndelta, ndelta),]);
-
-        colnames(rst.survivor) <- c("Delta0", "Mean0", "Delta1", "Mean1");
-        rst.survivor <- data.frame(rst.survivor);
-        rst.survivor$Diff <- rst.survivor$Mean1 - rst.survivor$Mean0;
-    }
-
-    rst <- list(lst.var=lst.var,
-                quantiles=median.median,
-                theta=avg.rank,
-                survivor=rst.survivor,
-                raw.theta=rst.rank,
-                raw.quantiles=rst.median);
-
-    class(rst) <- get.const("RST.CLASS");
-    rst
-}
-
-
-#' Boostrap analysis
-#'
-#' @inheritParams imEstimate
-#'
+#' @param imp.rst A class \code{IDEMIMP} object returned from
+#'     \code{\link{imImpAll}}
 #' @param n.boot Number of bootstrap samples
 #' @param n.cores Number of cores for parallel computation
+#' @param effect.quantiles Composite quantiles of interest for measuring
+#'     treatment effect
 #' @param update.progress Parameter reserved for run \code{idem} in GUI mode
-#'
-#' @return A class \code{IDEM.BOOT} list with length \code{n.boot+1}. Each item
-#'     in the list is a class \code{{IDEM.RST}} list (see
-#'     \code{\link{imEstimate}}). The first item correspons to the
-#'     estimation result on the original dataset.
-#'
-#' @examples
-#'
-#' \dontrun{
-#' lst.var  <- list(trt="TRT", surv="SURV", outcome=c("Y1","Y2"), y0=NULL,
-#'                  endp=c("Y2"), unitTime="days",
-#'                  trt.label = c("UC+SBT", "SAT+SBT"),
-#'                  cov=c("AGE"), endfml="Y2", duration=365, bounds=c(0,100));
-#' rst.fit <- imFitModel(abc, lst.var);
-#' rst.imp <- imImpAll(abc, rst.fit, deltas=c(-0.25,0,0.25),
-#'                     normal=TRUE, chains = 4, iter = 2000, warmup = 1000);
-#' rst.boot <- imBs(rst.imp, n.boot = 10, n.cores = 5, quantiles = c(0.25,0.5,0.75));}
-#'
-#' @export
-#'
-imBs <- function(imp.rst,
-                 n.boot = 100,
-                 n.cores = 1,
-                 update.progress=NULL,
-                 quantiles=0.5
-                 ) {
-
-    if (is.null(imp.rst))
-        return(NULL);
-
-    stopifnot(any(class(imp.rst) == get.const("IMP.CLASS")));
-    stopifnot(!is.null(imp.rst$org.data));
-
-    ##original result
-    rst.org <- imEstimate(imp.rst, quantiles=quantiles);
-
-    data.all  <- imp.rst$org.data;
-    lst.var   <- imp.rst$lst.var;
-    deltas    <- imp.rst$deltas;
-    n.imp     <- imp.rst$n.imp;
-    stan.par  <- imp.rst$stan.par;
-    normal    <- imp.rst$normal;
-
-    n.cores   <- min(n.cores, parallel::detectCores()-1);
-
-    if ("PROGRESS" %in% toupper(class(update.progress)))
-        update.progress$set(value=1, detail=paste(""));
-
-    rst <- parallel::mclapply(1:n.boot,
-                              function(x) {
-                         if ("PROGRESS" %in% toupper(class(update.progress)))
-                             update.progress$set(value=x/n.boot,
-                                                 detail=paste("Bootstrap", x, sep=" "));
-
-                         get.boot.single(data.all,
-                                         lst.var,
-                                         deltas=deltas,
-                                         n.imp=n.imp,
-                                         normal=normal,
-                                         stan.par=stan.par,
-                                         quantiles=quantiles);
-                     }, mc.cores=n.cores);
-
-    rst        <- c(list(rst.org), rst);
-    class(rst) <- get.const("BOOT.CLASS");
-    rst
-}
-
-
-#' Hypothesis testing
-#'
-#' Hypothesis testing using the estimation for the original dataset and
-#' Summarize Boostrap analysis results
-#'
-#' @param bs.rst A class \code{IDEM.BOOT} result list from
-#'     \code{\link{imBs}} for bootstrap analysis
-#'
 #' @param quantiles Quantiles for extracting bootstrap confidence intervals
+#' @param ... Extra options for ranking subjects using the composite endpoint
+#'     that include \itemize{ \item{\code{cut.z}: }{ Clinically meaningful difference in
+#'     the functional outcome} \item{\code{cut.surv}: }{ Clinically meaningful difference
+#'     in survival time}}
 #'
-#' @return A class \code{IDEM.TEST} containing two datasets
+#' @details
+#'
+#' If \code{n.boot=0}, bootstrap analysis will not be conducted. Instead, only
+#' the treatment effect size will be estimated using the imputed data.
+#'
+#' @return
+#'
+#' A class \code{IDEMTEST} list containing
 #'
 #' \describe{
+#' \item{lst.var}{List of specification parameters}
 #'
-#' \item{list.var}{List of parameters}
+#' \item{deltas}{Vector of sensitivity parameters}
 #'
-#' \item{theta}{ With columns
-#'
+#' \item{theta}{A data frame with columns
 #' \itemize{
-#'
-#' \item \code{Delta0}: Sensitivity parameter for control arm,
+#' \item \code{Delta0}: Sensitivity parameter for control arm
 #' \item \code{Delta1}: Sensitivity parameter for intervention arm
 #' \item \code{Theta}: Estimated \eqn{\theta}
-#' \item \code{SD}: Standard deviation
-#' \item \code{PValue}: p-value
-#' }}
+#' \item \code{SD}: Standard deviation (when \code{n.boot >0})
+#' \item \code{PValue}: p-value (when \code{n.boot >0}}
+#' }
 #'
-#' \item{quantiles}{With columns
+#' \item{effect.quantiles}{A data frame with columns
 #'
 #' \itemize{
-#'
 #' \item \code{Delta}:Sensitivity parameter
 #' \item \code{TRT}:Treatment arm
 #' \item \code{Q}: Quantiles of the composite endpoint to be estimated
-#' \item \code{Quant}: Estimation
-#' \item \code{LB}: Lower bound of the specified confidence interval
-#' \item \code{UB}: Upper bound of the specified confidence interval
-#' }}
-#' }
+#'
+#' \item \code{QuantY}: Estimated quantiles if the quantiles correspond to
+#' functional outcome (when \code{n.boot >0})
+#'
+#' \item \code{QuantSurv}: Estimated quantiles if the quantiles correspond to
+#' survival days (when \code{n.boot >0})
+#'
+#' \item \code{Q}: Boostrap quantiles for the QuantY (when \code{n.boot >0})
+#'
+#' \item \code{QSurv}: Boostrap quantiles for the QuantSurv (when
+#' \code{n.boot >0}) }}
+#'
+#' \item{bootstrap}{A list with length \code{n.boot}. The \eqn{i}th item is the
+#'     class \code{IDEMEST} list corresponding to the \eqn{i}th bootstrap
+#'     sample} }
 #'
 #' @examples
 #' \dontrun{
-#' lst.var <- list(trt="TRT", surv="SURV", outcome=c("Y1","Y2"), y0=NULL,
-#'                   endp=c("Y2"), unitTime="days",
-#'                   trt.label = c("UC+SBT", "SAT+SBT"),
-#'                   cov=c("AGE"), endfml="Y2", duration=365, bounds=c(0,100));
-#' rst.fit   <- imFitModel(abc, lst.var);
-#' rst.imp   <- imImpAll(abc, rst.fit, deltas=c(-0.25,0,0.25),
-#'                       normal=TRUE, chains = 4, iter = 2000, warmup = 1000);
-#' rst.boot  <- imBs(rst.imp, n.boot = 10, n.cores = 5);
-#' rst.final <- imTest(rst.boot);}
+#' rst.abc <- imData(abc, trt="TRT", surv="SURV", outcome=c("Y1","Y2"),
+#'                  y0=NULL, endfml="Y2",
+#'                  trt.label = c("UC+SBT", "SAT+SBT"),
+#'                  cov=c("AGE"), duration=365, bounds=c(0,100));
+#' rst.fit  <- imFitModel(rst.abc);
+#' rst.imp <- imImpAll(rst.fit, deltas=c(-0.25,0,0.25),
+#'                     normal=TRUE, chains = 2, iter = 2000, warmup = 1000);
+#' rst.est <- imInfer(rst.imp, n.boot = 0, effect.quantiles = c(0.25,0.5,0.75));
+#' rst.test <- imInfer(rst.imp, n.boot = 100, effect.quantiles = c(0.25,0.5,0.75));}
 #'
 #' @export
 #'
-imTest <- function(bs.rst, quantiles=c(0.025, 0.975)) {
+imInfer <- function(imp.rst,
+                     n.boot = 0,
+                     n.cores = 1,
+                     update.progress=NULL,
+                     effect.quantiles=0.5,
+                     quantiles=c(0.025, 0.975),
+                     ...) {
 
-    stopifnot(class(bs.rst) == get.const("BOOT.CLASS"));
+    stopifnot(get.const("IMP.CLASS") %in% class(imp.rst));
+    stopifnot(!is.null(imp.rst$org.data));
 
-    rst.org  <- bs.rst[[1]];
-    rst.boot <- bs.rst[-1];
 
-    ##bootstrap
-    meta  <- rep(list(NULL), 2);
-    rst   <- rep(list(NULL), 2);
-    for (i in 1:length(rst.boot)) {
-        cur.rank <- rst.boot[[i]]$theta;
-        cur.surv <- rst.boot[[i]]$survivor;
+    ##original result
+    rst.org <- get.estimate(imp.rst, effect.quantiles=effect.quantiles);
 
-        if (1 == i) {
-            meta[[1]] <- cur.rank[, -ncol(cur.rank)];
-            meta[[2]] <- cur.surv[, -ncol(cur.surv)];
-        }
+    if (0 == n.boot) {
+        rtn.rst  <- list(theta            = rst.org$theta,
+                         effect.quantiles = rst.org$effect.quantiles,
+                         survivor         = rst.org$survivor);
+    } else {
+        data.all  <- imp.rst$org.data;
+        lst.var   <- imp.rst$lst.var;
+        deltas    <- imp.rst$deltas;
+        n.imp     <- imp.rst$n.imp;
+        stan.par  <- imp.rst$stan.par;
+        normal    <- imp.rst$normal;
+        n.cores   <- min(n.cores, parallel::detectCores()-1);
 
-        rst[[1]] <- cbind(rst[[1]], cur.rank[,ncol(cur.rank)]);
-        rst[[2]] <- cbind(rst[[2]], cur.surv[,ncol(cur.surv)]);
+        if ("PROGRESS" %in% toupper(class(update.progress))
+            & n.boot > 0)
+            update.progress$set(value=1, detail=paste(""));
+
+        rst.bs <- parallel::mclapply(1:n.boot,
+                                     function(x) {
+                                if ("PROGRESS" %in% toupper(class(update.progress)) & n.boot > 0) {
+                                    update.progress$set(value=x/n.boot,
+                                                        detail=paste("Bootstrap", x, sep=" "));
+                                } else {
+                                    cat("---- Bootstrap", x, "\n");
+                                }
+                                get.boot.single(data.all,
+                                                lst.var,
+                                                deltas=deltas,
+                                                n.imp=n.imp,
+                                                normal=normal,
+                                                stan.par=stan.par,
+                                                effect.quantiles=effect.quantiles);
+                            }, mc.cores=n.cores);
+
+        rst.test <- get.tests(rst.org, rst.bs, quantiles = quantiles);
+
+        ##return
+        rtn.rst  <- list(theta            = rst.test$theta,
+                         effect.quantiles = rst.test$effect.quantiles,
+                         survivor         = rst.test$survivor,
+                         bootstrap        = rst.bs);
     }
-    rsd   <- cbind(meta[[1]], SD=apply(rst[[1]], 1, sd));
-    rsurv <- cbind(meta[[2]], SD=apply(rst[[2]], 1, sd));
 
-    rst.qs  <- array(NA, dim=c(nrow(rst.boot[[1]]$quantiles),
-                               length(rst.boot),
-                               2));
-    for (i in 1:length(rst.boot)) {
-        cur.med     <- rst.boot[[i]]$quantiles;
-        rst.qs[,i,] <- as.matrix(cur.med[, c("QuantY", "QuantSurv")]);
+    rtn.rst <- c(rtn.rst,
+                 list(lst.var = rst.org$lst.var,
+                      deltas  = rst.org$deltas));
+    class(rtn.rst) <- get.const("TEST.CLASS")
+    rtn.rst
+}
+
+
+#' Print inference results
+#'
+#' Print method of class \code{IDEMINFER} for treatment effect estimation and
+#' hypothesis testing results
+#'
+#'
+#' @param x A class \code{IDEMINFER} list generated by \code{\link{imInfer}}
+#' @param delta0 Selected treatment arm 0 sensitivity parameters
+#' @param delta1 Selected treatment arm 1 sensitivity parameters
+#' @param ... Extra arguments
+#'
+#' @examples
+#'
+#' \dontrun{
+#' rst.abc <- imData(abc, trt="TRT", surv="SURV", outcome=c("Y1","Y2"),
+#'                  y0=NULL, endfml="Y2",
+#'                  trt.label = c("UC+SBT", "SAT+SBT"),
+#'                  cov=c("AGE"), duration=365, bounds=c(0,100));
+#' rst.fit <- imFitModel(rst.abc);
+#' rst.imp <- imImpAll(rst.fit, deltas=c(-0.25,0,0.25),
+#'                     normal=TRUE, chains = 2, iter = 2000, warmup = 1000);
+#' rst.test <- imInfer(rst.imp, n.boot = 100);
+#' print(rst.test, delta0 = 0, delta1  = 0.15)}
+#'
+#' @export
+#'
+print.IDEMINFER <- function(x, delta0=NULL, delta1=NULL, ...) {
+    cat("\nThe sensitivity parameters considered were\n");
+    print(x$deltas);
+
+    get.theta.quant(x, delta0=delta0, delta1=delta1);
+
+    if (0 == length(x$bootstrap)) {
+        cat("\n\nPlease conduct bootstrap analysis for hypothesis testing.\n")
+    } else {
+        cat("\n\nThe hypothesis testing and confidence intervals are \n");
+        cat("based on", length(x$bootstrap), "bootstrap samples.")
+
+        if (length(x$bootstrap) < 100)
+            cat(" Please consider more \nbootstrap samples (e.g. >100) for the validity \nof the results.\n");
+        cat("\n");
+    }
+}
+
+
+#' Plot hypothesis testing results
+#'
+#' Generate contour plot of p-values or treatment effect theta for sensitivity
+#' analysis results
+#'
+#' @param x A class \code{IDEMINFER} list generated by \code{\link{imInfer}}
+#' @param opt contour plots of \code{pvalue} or \code{effect}
+#' @param con.v Levels of contour plot
+#' @param nlevels Levels of color scale
+#' @param ... Options for \code{filled.contour}
+#' @details
+#'
+#' The plot will only be generated when bootstrap analysis has been conducted.
+#'
+#' @examples
+#' \dontrun{
+#' rst.abc <- imData(abc, trt="TRT", surv="SURV", outcome=c("Y1","Y2"),
+#'                  y0=NULL, endfml="Y2",
+#'                  trt.label = c("UC+SBT", "SAT+SBT"),
+#'                  cov=c("AGE"), duration=365, bounds=c(0,100));
+#' rst.fit  <- imFitModel(rst.abc);
+#' rst.imp <- imImpAll(rst.fit, deltas=c(-0.25,0,0.25),
+#'                     normal=TRUE, chains = 2, iter = 2000, warmup = 1000);
+#' rst.est <- imInfer(rst.imp, n.boot = 100);
+#' plot(rst.est);}
+#'
+#' @method plot IDEMINFER
+#'
+#' @export
+#'
+plot.IDEMINFER <- function(x, con.v=0.05, nlevels=30, opt = c("pvalue", "effect"), ...) {
+
+    if (0 == length(x$bootstrap)) {
+        print("Please conduct bootstrap analysis first.")
+        return();
     }
 
-    rqs  <- NULL;
-    inxs <- ceiling(quantile(1:length(rst.boot), quantiles));
-    for (i in 1:nrow(rst.boot[[1]]$quantiles)) {
-        cur.qs  <- rst.qs[i,,];
-        cur.qsc <- get.comp(cur.qs[,1], cur.qs[,2]);
-        cur.ord <- order(cur.qsc);
-
-        cur.q   <- NULL;
-        cur.qi  <- NULL;
-        for (j in 1:length(inxs)) {
-            cur.i <- cur.ord[inxs[j]];
-            if (is.na(cur.qs[cur.i,1])) {
-                cur.q  <- c(cur.q,  cur.qs[cur.i, 2]);
-                cur.qi <- c(cur.qi, 1);
-            } else {
-                cur.q  <- c(cur.q,  cur.qs[cur.i, 1]);
-                cur.qi <- c(cur.qi, 0);
-            }
-        }
-        names(cur.q)  <- paste("BSQ", quantiles*100, sep = "");
-        names(cur.qi) <- paste(names(cur.q), "_Surv", sep = "");
-        cur.rst       <- c(cur.q, cur.qi);
-        rqs           <- rbind(rqs, cur.rst);
-    }
-    row.names(rqs) <- NULL;
-    rqs            <- data.frame(rqs);
+    opt <- match.arg(opt);
+    col.var <- switch(opt,
+                      pvalue = "PValue",
+                      effect = "Theta")
 
 
-    ##original
-    orank <- rst.org$theta;
-    omed  <- rst.org$quantiles;
-    osurv <- rst.org$survivor;
+    lst.var <- x$lst.var;
+    trt.len <- NULL;
+    get.para(lst.var, environment());
 
-    ##rank
-    rstrank <- sqldf("select a.*, b.sd
-                      from orank a
-                      left join rsd b on (a.Delta0 = b.Delta0 and a.Delta1 = b.Delta1)");
-
-    rstrank$PValue<- apply(rstrank,
-                           1,
-                           function(x) { 2*min(pnorm(x[3],0,x[4]),
-                                               1-pnorm(x[3],0,x[4]))});
-    ##quantiles
-    rstquan        <- cbind(omed, rqs);
-
-    ##survivors
-    rstsurv <- sqldf("select a.delta0, a.delta1, a.diff, b.sd
-                      from osurv a
-                      left join rsurv b on (a.Delta0 = b.Delta0 and a.Delta1 = b.Delta1)");
-
-    rstsurv$PValue<- apply(rstsurv,
-                           1,
-                           function(x) { 2*min(pnorm(x[3],0,x[4]),
-                                               1-pnorm(x[3],0,x[4]))});
-
-    rtn <- list(theta=rstrank,
-                quantiles=rstquan,
-                survivor=rstsurv,
-                lst.var=rst.org$lst.var);
-    class(rtn) <- get.const("TEST.CLASS");
-    rtn
+    cur.data <- x$theta;
+    plot.contour(cur.data, trt.len, col.var, con.v = con.v, nlevels = 30, ...);
 }
 
 

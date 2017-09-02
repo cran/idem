@@ -21,8 +21,7 @@ and spontaneous breathing trials (SBTs) or sedation per usual care
 
 The example dataset is from a single site substudy in ABC. The researchers
 assessed differences in cognitive, psychological and functional outcomes at 3
-and 12 months after randomization. ,
-respectively).
+and 12 months after randomization.
 }
 \references{
 T. D. Girard, J. P. Kress, B. D. Fuchs, J. W. W. Thomason, W. D. Schweickert,
