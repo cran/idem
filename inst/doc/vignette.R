@@ -7,7 +7,8 @@ head(abc);
 
 ## ---- echo=TRUE, fig.width=6, fig.height=5-------------------------------
 rst.data <- imData(abc, trt="TRT", outcome=c("Y1","Y2"), y0=NULL,
-                   endfml="Y3", bounds=c(10,20), duration=365);
+                   endfml="Y3", bounds=c(10,20), duration=365,
+                   err.terminate = FALSE);
 print(rst.data);
 
 rst.data <- imData(abc, trt="TRT", surv="SURV", outcome=c("Y1","Y2"),

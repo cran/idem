@@ -91,15 +91,7 @@ tab.login <- function(){
 tab.upload <- function(){
     tabPanel("Upload Data",
              fluidPage(
-                 msg.box('Please upload data file on this page.
-                 		  For an example of how to correctly specify an uploaded file, please see the previous tab.
-                          Right click, save as, to download an <a href="example.txt" download> example file </a>.
-                          Please see the previous tab for an example of how to perform a full data analysis using the
-                          example file.
-                          Note that the default settings on the "Upload", "Model Specification" and "Imputation" tabs
-                          are set such that the example analysis can be performed without changing any input parameters.
-                          For shorter computation time, one may wish to decrease "Iterations" and "Thinning" under
-                          the "Imputation" tabl.'),
+                 msg.box('Please upload data file on this page. For an example of how to correctly specify an uploaded file, please see the previous tab. Right click, save as, to download an <a href="example.txt" download> example file </a>. Please see the previous tab for an example of how to perform a full data analysis using the example file. Note that the default settings on the "Upload", "Model Specification" and "Imputation" tabs are set such that the example analysis can be performed without changing any input parameters. For shorter computation time, one may wish to decrease "Iterations" and "Thinning" under the "Imputation" table.'),
                  wellPanel(h4("Upload data"),
                            fluidRow(
                                column(3, h6("Choose File"),
@@ -147,7 +139,7 @@ panel.model <- function(){
                   uiOutput("uiModel")
                   ),
         wellPanel(fluidRow(
-            column(4,
+            column(3,
                    h4("Functional Endpoint"),
                    textInput("inTxtEnd","",value="Y2"),
                    msg.box("Please specify the analysis endpoint;
@@ -156,7 +148,7 @@ panel.model <- function(){
                             functional outcome measured over time (e.g. change in
                             the outcome comparing 12-months to baseline: Y12-Y0)")
                    ),
-            column(4, h4("Study Duration"),
+            column(3, h4("Study Duration"),
                    numericInput("inDuration","",value="365", min=0),
                    msg.box("Please specify the cut off of the study.
                             Patients with survival time longer than study duration are
@@ -164,16 +156,16 @@ panel.model <- function(){
                             measurement for survival (e.g. if survival is measured in weeks,
                             and the study concluded at 1 year post-randomization,
                             the duration would be 52)")),
-           column(4,
-                   h4("Unit of Time for Survival/Study Duration"),
-                  selectInput("inSelUnitTime",
-                              "",
-                              choices=c("", "Years", "Months", "Weeks", "Days"),
-                              selected="Days"))
+            column(3,
+                   h4("Time Unit of Survival/Duration"),
+                   selectInput("inSelUnitTime",
+                               "",
+                               choices=c("", "Years", "Months", "Weeks", "Days"),
+                               selected="Days"))
         )),
 
         wellPanel(fluidRow(
-            column(4,
+            column(3,
                    h4("Boundary"),
                    msg.box("Please sepcify the lower and upper bound of the functional outcomes for
                             data transformation. Set to avoid out of boundary imputations.
@@ -183,7 +175,7 @@ panel.model <- function(){
                    h5("Upper boundary for imputed functional outcomes"),
                    numericInput("inBound1","",value="100")
                    ),
-            column(6,
+            column(8,
                    h4("Ranking Rules"),
                    msg.box("For each subject, the subject experiences death and we observe time to death,
                             L, or the subject survives and we observe the functional outcome of interest,
@@ -225,10 +217,11 @@ panel.model <- function(){
                        desireable outcome than experiencing death at any point prior
                        to the end of the study")
                  ))),
-        msg.box("Please validate the configuration before proceeding to the next step."),
-        actionButton("btnValid", "Validate Model", styleclass="info"),
-        htmlOutput("uiValid")
-        );
+        wellPanel(msg.box("Please validate the configuration before proceeding to the next step."),
+                  actionButton("btnValid", "Validate Model", styleclass="info"),
+                  htmlOutput("uiValid")),
+        uiOutput("uiLabel")
+    );
 }
 
 
@@ -268,10 +261,11 @@ panel.fitting <- reactive({
         return(NULL);
 
     lst.var <- data.all$lst.var;
+    a.trt   <- get.trt();
 
-    a.trt <- get.trt();
     ## need to change if more than two treatment groups or the convention of TRT=0/TRT=1 changes
-    trt.names <- c('Control','Intervention')
+    ## trt.names <- c('Control','Intervention')
+    trt.names <- get.data()$lst.var$trt.label;
 
     rst <- list(widths=c(2,10));
     for (i in 1:length(a.trt)) {
@@ -298,7 +292,7 @@ panel.fitting <- reactive({
     ##return
     rst <- do.call(navlistPanel, rst);
     list(
-	    	msg.box('The multiple impuation of missing functional outcomes among
+	    	msg.box('The multiple imputation of missing functional outcomes among
                  survivors requires us to fit a series of regression models.
                  We fit a sequence of regression models for the functional outcome
                  at the current time conditioning on the prior value of the functional
@@ -333,7 +327,8 @@ panel.config <- reactive({
                              sliderInput(inputId = "inNbs", label = "",
                                          value = 100, min = 5, max = 1000, step=1),
                              h6("Random seed"),
-                             numericInput(inputId="inSeed", label="", value=0, min=0)),
+                             numericInput(inputId="inSeed", label="",
+                                          value=10000, min=0)),
                       column(3,
                              h6("Number of Cores (Parallel Bootstrap)"),
                              sliderInput("inNcores", label = "", value = 1, min = 1,
@@ -341,16 +336,16 @@ panel.config <- reactive({
                   )),
         wellPanel(
             h4("MCMC Paramters"),
-            msg.box("Specify parameters for Bayesian posterior sampling. The target metropolis
-                          acceptance rate and initial step-size are options for advanced users to
-                          control STAN sampler's behavior. "),
+            msg.box("Specify parameters for Bayesian posterior sampling. The target
+                     acceptance rate and initial step-size are options for advanced
+                     users to control STAN sampler's behavior. "),
             fluidRow(
                 column(3,
                        h6("Number of iterations"),
                        sliderInput(inputId = "mcmciter", label = "",
-                                   value = 2000, min = 200, max = 20000, step=100),
+                                   value = 1000, min = 200, max = 20000, step=100),
                        h6("Number of burn-in"),
-                       sliderInput("mcmcburnin", label = "", value=1000, min=100, max=20000, step=100)
+                       sliderInput("mcmcburnin", label = "", value=500, min=100, max=20000, step=100)
                        ),
                 column(3,
                        h6("Number of thinning"),
@@ -359,7 +354,7 @@ panel.config <- reactive({
                        sliderInput("mcmcchain", label = "", value=4, min=2, max=10, step=1)
                        ),
                 column(3,
-                       h6("Target Metropolis Acceptance Rate"),
+                       h6("Target Acceptance Rate"),
                        sliderInput("mcmcdelta", label = "", value=0.95, min=0.05, max=1, step=0.05),
                        h6("Initial Step-size"),
                        sliderInput("mcmcstepsize", label = "", value=1, min=0.05, max=5, step=0.05)
@@ -368,27 +363,29 @@ panel.config <- reactive({
                        ))),
         wellPanel(h4("Sensitivity Parameters and Additional Quantile Output"),
                   fluidRow(
-                      column(3,
-                             h6("Imputation sensitivity parameters (separate by comma).
+                      column(4,
+                             h6("Imputation Sensitivity Parameters"),
+                             textInput("inSensp", label="", value = get.sd.endp(outVar='ImpSens')),
+                             msg.box("Imputation sensitivity parameters (separate by comma).
                                   Default values set such that the range of the sensitivity
                                   parameters is equal to one-fourth standard deviation of
                                   the distriubtion of functional endpoints among subjects
-                                  who do not require their data to be imputed."),
-                             textInput("inSensp", label="", value = get.sd.endp(outVar='ImpSens'))),
-                      column(3,
-                             h6("The median of the composite endpoint for each treatment
+                                  who do not require their data to be imputed.")),
+                      column(4,
+                             h6("Quantiles of the Composite Endpoint"),
+                             textInput("inExtras", label="", value=c("25,75")),
+                             msg.box("The median of the composite endpoint for each treatment
                                   will be computed. Below enter additional percentiles of
-                                  the composite variable you would like to obtain."),
-                             textInput("inExtras", label="", value=c("25,75"))),
-                      column(3
-                             ##h6('SACE Sensitivity Parameter (separate by comma,
-                             ##     values <= 0 are valid). Default values set such that
-                             ##     the range of the sensitivity parameter ranges from 0 to
-                             ##     minus one-half standard deviation of the distribution of
-                             ##     functional endpoints among subjects who do not require
-                             ##     their data to be imputed.'),
-                             ##textInput("inSACE", label="", value=get.sd.endp(outVar='SACE'))
-                             )
+                                  the composite variable you would like to obtain.")),
+                      column(4,
+                             h6("SACE Sensitivity Parameters"),
+                             textInput("inSACE", label="", value=get.sd.endp(outVar='SACE')),
+                             msg.box('SACE Sensitivity Parameter (separate by comma,
+                                 values <= 0 are valid). Default values set such that
+                                 the range of the sensitivity parameter ranges from 0 to
+                                 minus one-half standard deviation of the distribution of
+                                 functional endpoints among subjects who do not require
+                                 their data to be imputed.'))
                   )),
         wellPanel(
             h4("Convergence Checking"),
@@ -470,7 +467,7 @@ panel.impute.summary <- reactive({
                               br(),
                               tableOutput("outTblImpMedian"),
                               br(),
-                              h5("Cumulative Distribution of the Compositve Variable Under
+                              h5("Cumulative Distribution of the Composite Variable Under
                                   Benchmark Imputaiton Assumptions"),
                               plotOutput("outPlotImpComp"),
                               align = 'center'),
@@ -495,8 +492,28 @@ panel.boot <- reactive({
                                   tabPanel("Contour Plot",
                                            plotOutput("outBootContourRank"),
                                            align = 'center')
+                              )),
+                     tabPanel("Survivor only analysis results",
+                              msg.box("PLEASE BE CAUTIOUS that survivors only analysis is only valid
+                                       when the treatment has no impact on survival.", "warning"),
+                              tabsetPanel(
+                                  tabPanel("Treatment Effect",
+                                           tableOutput("outTblBootThetaSOnly"),
+                                           align = 'center'),
+                                  tabPanel("Contour Plot",
+                                           plotOutput("outBootContourSonly"),
+                                           align = 'center')
+                              )),
+                     tabPanel("SACE analysis results",
+                              tabsetPanel(
+                                  tabPanel("Treatment Effect",
+                                           tableOutput("outTblBootThetaSACE"),
+                                           align = 'center'),
+                                  tabPanel("Contour Plot",
+                                           plotOutput("outBootContourSACE"),
+                                           align = 'center')
                               ))),
-        style = "margin-top:20px")
+        style = "margin-top:20px;  min-height: 600px;")
 })
 
 ##define the main tabset for beans
@@ -529,7 +546,6 @@ observe ({
                                   na.strings=input$nastrings);
     }
 })
-
 
 observe ({
     if (is.null(input$btnExample))
@@ -590,6 +606,15 @@ get.variables <- reactive({
         rst})
 })
 
+##get treatment labels
+get.trt.labels <- reactive({
+    if (is.null(input$inTxtArm0) |
+        is.null(input$inTxtArm1))
+        return(NULL);
+
+    c(input$inTxtArm0, input$inTxtArm1);
+})
+
 ##get mcmc setup
 get.mcmc.par <- reactive({
     rst <- list(iter=input$mcmciter,
@@ -608,11 +633,17 @@ get.data <- reactive({
     if (is.null(userLog$data) | is.null(lst.var))
         return(NULL);
 
-    rst <- do.call(imData, c(list(userLog$data), lst.var));
+    rst <- do.call(imData, c(list(userLog$data), lst.var, err.terminate = FALSE));
 
     if ("IDEMERROR" %in% class(rst)) {
         return(NULL);
     } else {
+
+        ## add treatment labels
+        cur.labels <- get.trt.labels();
+        if (!is.null(cur.labels))
+            rst$lst.var$trt.label <- cur.labels;
+
         return(rst);
     }
 })
@@ -623,7 +654,7 @@ get.model.valid <- reactive({
     if (is.null(userLog$data) | is.null(lst.var))
         return(null);
 
-    rst <- do.call(imData, c(list(userLog$data), lst.var));
+    rst <- do.call(imData, c(list(userLog$data), lst.var, err.terminate = FALSE));
 
     if ("IDEMERROR" %in% class(rst)) {
         return(rst);
@@ -659,7 +690,6 @@ get.trt <- reactive({
 
     rst <- summary(data.all, opt = "trt");
 })
-
 
 get.imp.inx <- reactive({
     data.all <- get.data();
@@ -730,11 +760,10 @@ get.imputed.mcmc <- reactive({
                            warmup=mcmc.par$warmup,
                            thin=mcmc.par$thin,
                            control=mcmc.par$control,
-                           seed=input$inSeed);
+                           seed=as.numeric(input$inSeed));
     })
     rst
-})
-
+});
 
 ##get rank median for the original
 get.rst.orig <- reactive({
@@ -745,7 +774,10 @@ get.rst.orig <- reactive({
     if (is.null(imp.data))
         return(NULL);
 
-    rst <- imInfer(imp.data, n.boot = 0, quantiles = get.extras());
+    rst <- imInfer(imp.data,
+                   n.boot = 0,
+                   effect.quantiles = get.extras(),
+                   seed = as.numeric(input$inSeed));
 })
 
 ##get bootstrap results
@@ -770,11 +802,23 @@ get.rst.boot <- reactive({
         rst <- imInfer(imp.rst,
                        n.boot=n.boot,
                        n.core=nCores,
-                       update.progress=progress);
+                       update.progress=progress,
+                       seed=as.numeric(input$inSeed));
     });
     rst
 })
 
+
+## get sace
+get.rst.boot.sace <- reactive({
+    cur.boot <- get.rst.boot();
+    cur.sace <- get.SACE();
+
+    if (is.null(cur.boot) | is.null(cur.sace))
+        return(NULL);
+
+    summary(cur.boot, opt = "SACE", sace.deltas = cur.sace);
+})
 
 ## get standard deviation of functional endpoint -- used to populate configuration
 get.sd.endp <- function(out.len = 3, sdPct = 0.1, outVar){
@@ -822,7 +866,6 @@ get.imputed.full <- reactive({
         ##Close the progress when this reactive exits (even if there's an error)
         on.exit(progress$close());
 
-        set.seed(as.numeric(input$inSeed));
         imp.full <- imImpAll(fit.rst,
                              deltas=deltas,
                              normal=input$inNorm,
@@ -832,9 +875,10 @@ get.imputed.full <- reactive({
                              warmup=mcmc.par$warmup,
                              thin=mcmc.par$thin,
                              control=mcmc.par$control,
-                             seed=input$inSeed,
-                             update.progress=progress);
+                             update.progress=progress,
+                             seed=as.numeric(input$inSeed));
     })
 
     imp.full
 })
+

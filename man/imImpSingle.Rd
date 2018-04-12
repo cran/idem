@@ -5,7 +5,7 @@
 \title{Impute missing data for MCMC convergence checking}
 \usage{
 imImpSingle(dsub, fit.rst, normal = TRUE, chains = 4, iter = 5000,
-  warmup = 1000, control = list(adapt_delta = 0.95), ...)
+  warmup = 1000, control = list(adapt_delta = 0.95), ..., seed = NULL)
 }
 \arguments{
 \item{dsub}{original individual subject data}
@@ -26,6 +26,8 @@ be made for the residuals}
 
 \item{...}{other options to call STAN sampling such as \code{thin},
 \code{algorithm}. See \code{rstan::sampling} for details.}
+
+\item{seed}{Random seed}
 }
 \value{
 \code{NULL} if there is no missing data in \code{dsub}
@@ -49,4 +51,3 @@ im.fit <- imFitModel(im.abc);
 im.imp <- imImpSingle(abc[1,], im.fit, chains = 4, iter = 200, warmup = 100);
 
 }
-

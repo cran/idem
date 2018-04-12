@@ -68,10 +68,10 @@ shinyServer(function(input, output, session) {
 
     ##--display data uploaded-----
     output$uiData <- DT::renderDataTable({
-        if (input$displaydata) {
-            userLog$data;
-        }
-    }, rownames=NULL, selection="none", options=list(pageLength=50))
+                             if (input$displaydata) {
+                                 userLog$data;
+                             }
+                         }, rownames=NULL, selection="none", options=list(pageLength=50))
 
     ##--------------------------------------
     ##---------model specification----------
@@ -109,6 +109,24 @@ shinyServer(function(input, output, session) {
             }
             HTML(rst)});
     })
+
+
+    output$uiLabel <- renderUI({
+        if (is.null(userLog$data) | -1 == userLog$model)
+            return(list(NULL));
+
+        isolate({
+            cur.trts <- get.data()$lst.var$trt.label;
+        })
+
+        wellPanel(
+            msg.box("Treatment labels for tables and figures may be specified here."),
+            h4("Labels of Treatment"),
+            textInput("inTxtArm0","Arm 0",value = cur.trts[1], width = "200px"),
+            textInput("inTxtArm1","Arm 1",value = cur.trts[2], width = "200px"))
+    })
+
+
 
     ##--------------------------------------
     ##-----------data visualization---------
@@ -156,9 +174,10 @@ shinyServer(function(input, output, session) {
     ##completers
     output$outPlotComp <- renderPlot({
         data.all <- get.data();
+
         if (is.null(data.all))
             return(NULL);
-        plot(data.all, opt = "survivor");
+        plot(data.all, opt = "survivor", by.sace = FALSE);
 
     }, width=1000, height=600, bg="transparent");
 
@@ -358,7 +377,7 @@ shinyServer(function(input, output, session) {
             return(NULL);
 
         rm.rst <- get.rst.orig();
-        rm.rst$quantiles;
+        rm.rst$effect.quantiles;
     },
     include.rownames=TRUE,
     caption = 'Table: Quantiles of Compositve Variable.',
@@ -426,6 +445,7 @@ shinyServer(function(input, output, session) {
     caption.width = getOption("xtable.caption.width", NULL));
 
 
+    ## Bootstrapped Quantiles
     output$outTblBootQuantiles <- renderTable({
         if (0 == input$btnBoot)
             return(NULL);
@@ -437,11 +457,63 @@ shinyServer(function(input, output, session) {
     caption.placement = getOption("xtable.caption.placement", "top"),
     caption.width = getOption("xtable.caption.width", NULL));
 
-    ## Contour plots
+    ## Bootstrapped Contour
     output$outBootContourRank <- renderPlot({
         if (0 == input$btnBoot)
             return(NULL);
         rst <- get.rst.boot();
+        plot(rst, main="");
+    },
+    width=500,
+    height=500,
+    bg="transparent");
+
+    ## -----------survivor only ----------------------
+    output$outTblBootThetaSOnly <- renderTable({
+        if (0 == input$btnBoot)
+            return(NULL);
+        rst <- summary(get.rst.boot());
+        rst$rst;
+    },
+    include.rownames=FALSE,
+    caption = 'Table: Survivor only treatment effect. Note that Delta0
+               and Delta1 indicate the imputation sensitivity parameters used
+               for the control and intervention groups, respectively.',
+    caption.placement = getOption("xtable.caption.placement", "top"),
+    caption.width = getOption("xtable.caption.width", NULL));
+
+    ## Contour plots: survivor only
+    output$outBootContourSonly <- renderPlot({
+        if (0 == input$btnBoot)
+            return(NULL);
+        rst <- summary(get.rst.boot());
+        plot(rst, main="");
+    },
+    width=500,
+    height=500,
+    bg="transparent");
+
+
+    ## -----------sace ----------------------
+    output$outTblBootThetaSACE <- renderTable({
+        if (0 == input$btnBoot)
+            return(NULL);
+        rst <- get.rst.boot.sace();
+        rst$rst;
+    },
+    include.rownames=FALSE,
+    caption = 'Table: SACE treatment effect. Note that Delta0
+               and Delta1 indicate the imputation sensitivity parameters used
+               for the control and intervention groups, respectively.',
+    caption.placement = getOption("xtable.caption.placement", "top"),
+    caption.width = getOption("xtable.caption.width", NULL));
+
+
+    ## Contour plots: SACE
+    output$outBootContourSACE <- renderPlot({
+        if (0 == input$btnBoot)
+            return(NULL);
+        rst <- get.rst.boot.sace();
         plot(rst, plot.title="");
     },
     width=500,

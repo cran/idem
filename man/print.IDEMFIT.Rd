@@ -21,4 +21,3 @@ Print the results from \code{lm} for all the models
 \seealso{
 \code{\link{imFitModel}}
 }
-

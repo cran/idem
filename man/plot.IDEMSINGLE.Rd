@@ -29,4 +29,3 @@ plot(im.imp.single);
 \seealso{
 \code{\link{imImpSingle}}
 }
-

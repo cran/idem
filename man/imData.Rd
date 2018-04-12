@@ -6,7 +6,7 @@
 \usage{
 imData(data, trt = NULL, surv = NULL, outcome = NULL, endfml = NULL,
   y0 = NULL, cov = NULL, duration = 9999, bounds = NULL,
-  trt.label = NULL, unitTime = "days", ...)
+  trt.label = NULL, unitTime = "days", err.terminate = TRUE, ...)
 }
 \arguments{
 \item{data}{Original dataset}
@@ -38,6 +38,10 @@ clinical outcomes}
 
 \item{unitTime}{Unit of time measurement for survival and function outcome time points}
 
+\item{err.terminate}{When there is error in the specification, the program
+should be stopped with an error message if err.terminate is true.
+Otherwise, the error message will be returned and the program will continue.}
+
 \item{...}{Additional specifications}
 }
 \value{
@@ -63,4 +67,3 @@ rst.data <- imData(abc, trt="TRT", surv="SURV", outcome=c("Y1","Y2"),
                    cov=c("AGE"), duration=365, bounds=c(0,100));
 
 }
-

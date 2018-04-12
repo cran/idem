@@ -49,4 +49,3 @@ rst.survivors <- summary(rst.infer, opt="survivor");
 plot(rst.survivors);}
 
 }
-

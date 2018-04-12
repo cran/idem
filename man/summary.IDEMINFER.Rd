@@ -65,4 +65,3 @@ rst.sace  <- summary(rst.infer, opt = "SACE")}
 Chiba Y, VanderWeele TJ (2011). A simple method for principal strata effects when
 the outcome has been truncated due to death. American Journal of Epidemiology 173(7):745-751.
 }
-

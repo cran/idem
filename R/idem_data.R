@@ -31,6 +31,10 @@
 #'
 #' @param unitTime Unit of time measurement for survival and function outcome time points
 #'
+#' @param err.terminate When there is error in the specification, the program
+#'     should be stopped with an error message if err.terminate is true.
+#'     Otherwise, the error message will be returned and the program will continue.
+#'
 #' @param ... Additional specifications
 #'
 #' @details
@@ -60,7 +64,7 @@
 imData <- function(data, trt=NULL, surv=NULL, outcome=NULL, endfml=NULL,
                    y0 = NULL, cov = NULL,
                    duration = 9999, bounds = NULL, trt.label =NULL,
-                   unitTime="days", ...) {
+                   unitTime="days", err.terminate = TRUE, ...) {
 
     lst.var <- list(trt       = trt,
                     surv      = surv,
@@ -74,15 +78,32 @@ imData <- function(data, trt=NULL, surv=NULL, outcome=NULL, endfml=NULL,
                     unitTime  = unitTime);
 
     lst.var$parsed.endfml <- get.parsed.endfml(endfml);
-
-
-    err.msg <- chk.pars(data, lst.var);
+    err.msg               <- chk.pars(data, lst.var);
 
     if (is.null(err.msg)) {
+        if (is.null(lst.var$trt.label)) {
+            trt.label <- sort(unique(data[,lst.var$trt]));
+            trt.label <- sapply(trt.label, function(x) {
+                if (0 == as.numeric(x)) {
+                    return("Control");
+                } else if (1 == as.numeric(x)) {
+                    return("Intervention");
+                } else
+                    return(x);
+            })
+            lst.var$trt.label <- trt.label;
+        }
+
         rst        <- list(data    = data,
                            lst.var = lst.var);
         class(rst) <- get.const("IDEM.CLASS");
     } else {
+
+        if (err.terminate) {
+            print(err.msg);
+            stop("Please check the error messages above.", call. = FALSE);
+        }
+
         rst <- err.msg;
     }
 
@@ -104,9 +125,11 @@ imData <- function(data, trt=NULL, surv=NULL, outcome=NULL, endfml=NULL,
 #'
 #' @examples
 #' rst.data <- imData(abc, trt="TRT", outcome=c("Y1","Y2"), y0=NULL,
-#'                    endfml="Y3", bounds=c(10,20), duration=365);
+#'                    endfml="Y3", bounds=c(10,20), duration=365,
+#'                    err.terminate=FALSE);
 #' print(rst.data);
 #'
+#' @export
 #'
 #'
 print.IDEMERROR <- function(x, html = FALSE, ...) {
@@ -135,6 +158,7 @@ print.IDEMERROR <- function(x, html = FALSE, ...) {
 #'
 #' @seealso \code{\link{imData}}
 #'
+#' @export
 #'
 print.IDEMDATA <- function(x, ...) {
     data    <- x$data;

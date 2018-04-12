@@ -38,4 +38,3 @@ rst.est <- imInfer(rst.imp, n.boot = 100);
 plot(rst.est);}
 
 }
-

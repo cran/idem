@@ -1,5 +1,5 @@
 
-##simulate missing y for a single subject
+//simulate missing y for a single subject
 
 functions {
   real klpdf(real err, vector res, real h, int n) {

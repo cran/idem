@@ -32,4 +32,3 @@ plot(im.fit, mfrow=c(2,4));
 \seealso{
 \code{\link{imFitModel}}
 }
-

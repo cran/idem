@@ -6,15 +6,17 @@
 #' @param imp.rst A class \code{IDEMIMP} object returned from
 #'     \code{\link{imImpAll}}
 #' @param n.boot Number of bootstrap samples
-#' @param n.cores Number of cores for parallel computation
+#' @param n.cores Number of cores for parallel computation. Fixed at 1 for Windows.
 #' @param effect.quantiles Composite quantiles of interest for measuring
 #'     treatment effect
 #' @param update.progress Parameter reserved for run \code{idem} in GUI mode
-#' @param quantiles Quantiles for extracting bootstrap confidence intervals
+#' @param quant.ci Quantiles for extracting bootstrap confidence intervals
 #' @param ... Extra options for ranking subjects using the composite endpoint
 #'     that include \itemize{ \item{\code{cut.z}: }{ Clinically meaningful difference in
 #'     the functional outcome} \item{\code{cut.surv}: }{ Clinically meaningful difference
 #'     in survival time}}
+#'
+#' @param seed Random seed
 #'
 #' @details
 #'
@@ -76,16 +78,27 @@
 #' @export
 #'
 imInfer <- function(imp.rst,
-                     n.boot = 0,
-                     n.cores = 1,
-                     update.progress=NULL,
-                     effect.quantiles=0.5,
-                     quantiles=c(0.025, 0.975),
-                     ...) {
+                    n.boot = 0,
+                    n.cores = 1,
+                    update.progress=NULL,
+                    effect.quantiles=0.5,
+                    quant.ci=c(0.025, 0.975),
+                    ...,
+                    seed = NULL) {
 
     stopifnot(get.const("IMP.CLASS") %in% class(imp.rst));
     stopifnot(!is.null(imp.rst$org.data));
 
+    if( .Platform$OS.type == "windows" && n.cores > 1) {
+        warning("n.cores is set to be 1 on Windows.");
+        n.cores <- 1;
+    }
+
+    if (is.numeric(seed)) {
+        old.seed.kind <- RNGkind("L'Ecuyer-CMRG");
+        old.seed      <- .Random.seed;
+        set.seed(seed);
+    }
 
     ##original result
     rst.org <- get.estimate(imp.rst, effect.quantiles=effect.quantiles);
@@ -124,7 +137,7 @@ imInfer <- function(imp.rst,
                                                 effect.quantiles=effect.quantiles);
                             }, mc.cores=n.cores);
 
-        rst.test <- get.tests(rst.org, rst.bs, quantiles = quantiles);
+        rst.test <- get.tests(rst.org, rst.bs, quantiles = quant.ci);
 
         ##return
         rtn.rst  <- list(theta            = rst.test$theta,
@@ -133,10 +146,19 @@ imInfer <- function(imp.rst,
                          bootstrap        = rst.bs);
     }
 
+
+    ##reset seed
+    if (is.numeric(seed)) {
+        RNGkind(old.seed.kind[1]);
+        .Random.seed <- old.seed;
+    }
+
+    ##return
     rtn.rst <- c(rtn.rst,
                  list(lst.var = rst.org$lst.var,
                       deltas  = rst.org$deltas));
     class(rtn.rst) <- get.const("TEST.CLASS")
+
     rtn.rst
 }
 

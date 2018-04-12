@@ -97,4 +97,3 @@ plot(rst.imp, opt = "composite")}
 \seealso{
 \code{\link{imImpAll}}
 }
-

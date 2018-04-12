@@ -16,20 +16,21 @@
 #'
 imShiny <- function() {
 
-    if (!requireNamespace("shiny", quietly = TRUE)) {
-        stop("Shiny needed for this function to work. Please install it.",
-             call. = FALSE)
+    req.pkgs        <- c("shiny", "shinythemes", "DT", "knitr", "rmarkdown", "pander");
+    chk.uninstalled <- sapply(req.pkgs, function(x) {!requireNamespace(x, quietly = TRUE)});
+    chk.inx         <- which(chk.uninstalled);
+
+    if (0 < length(chk.inx)) {
+        msg <- paste("For the GUI to work, please install ",
+                     ifelse(1 < length(chk.inx), "packages ", "package "),
+                     paste(req.pkgs[chk.inx], collapse = ", "),
+                     " by \n install.packages(",
+                     paste(paste("'", req.pkgs[chk.inx], "'", sep = ""), collapse = ", "),
+                     ") \n  ",
+                     sep = "");
+        stop(msg, call. = FALSE);
     }
 
-    if (!requireNamespace("shinythemes", quietly = TRUE)) {
-        stop("shinythemes needed for this function to work. Please install it.",
-             call. = FALSE)
-    }
-
-    if (!requireNamespace("DT", quietly = TRUE)) {
-        stop("DT needed for this function to work. Please install it.",
-             call. = FALSE)
-    }
 
     appDir <- system.file("shiny", package = "idem")
     if (appDir == "") {

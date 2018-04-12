@@ -186,6 +186,7 @@ plot.IDEMFIT <- function(x, trt = NULL, mfrow = NULL, ...) {
 #' @param control STAN parameter. See \code{rstan::stan} for details.
 #' @param ... other options to call STAN sampling such as \code{thin},
 #'     \code{algorithm}. See \code{rstan::sampling} for details.
+#' @param seed Random seed
 #' @return
 #'
 #' \code{NULL} if there is no missing data in \code{dsub}
@@ -208,10 +209,15 @@ plot.IDEMFIT <- function(x, trt = NULL, mfrow = NULL, ...) {
 #'
 imImpSingle <- function(dsub, fit.rst, normal=TRUE,
                         chains = 4, iter = 5000, warmup = 1000, control = list(adapt_delta=0.95),
-                        ...) {
+                        ..., seed = NULL) {
 
     stopifnot(class(fit.rst) == get.const("FIT.CLASS"));
     stopifnot(1 == nrow(dsub));
+
+    if (is.numeric(seed)) {
+        old.seed <- .Random.seed;
+        set.seed(seed);
+    }
 
     lst.var <- fit.rst$im.data$lst.var;
     fit.all <- fit.rst$rst.mdl;
@@ -310,6 +316,11 @@ imImpSingle <- function(dsub, fit.rst, normal=TRUE,
     eval(parse(text=paste("tmp.endp <- with(ycomplete, {", endfml,"})")));
     ycomplete[[get.const("TXT.ENDP")]] <- tmp.endp;
 
+    ##reset random seed
+    if (is.numeric(seed)) {
+        .Random.seed <- old.seed;
+    }
+
     ##return
     rst <- list(dsub      = dsub,
                 rst.stan  = stan.rst,
@@ -363,7 +374,7 @@ print.IDEMSINGLE <- function(x, ...) {
     cat("This checks the mixing of the MCMC sampling ");
     cat("for the following subject:\n");
     print(x$dsub);
-    cat("\nCall plot function to generate the traceplot of the MCMC samples. \n");
+    cat("\nCall plot function to generate the trace plot of the MCMC samples. \n");
 }
 
 
@@ -390,6 +401,7 @@ print.IDEMSINGLE <- function(x, ...) {
 #' @param ... options to call STAN sampling. These options include
 #'     \code{chains}, \code{iter}, \code{warmup}, \code{thin}, \code{algorithm}.
 #'     See \code{rstan::sampling} for details.
+#' @param seed Random seed
 #'
 #' @return
 #'
@@ -432,7 +444,8 @@ imImpAll <- function(fit.rst,
                      endponly=TRUE,
                      update.progress=NULL,
                      imputeNone=FALSE,
-                     ...) {
+                     ...,
+                     seed = NULL) {
 
     f.addcols <- function(dset) {
         cbind('ID'=1:nrow(dset),
@@ -442,6 +455,11 @@ imImpAll <- function(fit.rst,
     }
 
     stopifnot(class(fit.rst) == get.const("FIT.CLASS"));
+
+    if (is.numeric(seed)) {
+        old.seed <- .Random.seed;
+        set.seed(seed);
+    }
 
     if (!is.null(data.all)) {
         cur.data <- imData(data.all, fit.rst$im.data$lst.var);
@@ -519,6 +537,11 @@ imImpAll <- function(fit.rst,
         } else {
             print(i);
         }
+    }
+
+    ##reset seed
+    if (is.numeric(seed)) {
+        .Random.seed <- old.seed;
     }
 
     ##return

@@ -46,4 +46,3 @@ plot(rst.data, opt = "KM");
 \seealso{
 \code{\link{imData}}
 }
-

@@ -5,7 +5,7 @@
 \title{Treatment effect estimation and hypothesis testing}
 \usage{
 imInfer(imp.rst, n.boot = 0, n.cores = 1, update.progress = NULL,
-  effect.quantiles = 0.5, quantiles = c(0.025, 0.975), ...)
+  effect.quantiles = 0.5, quant.ci = c(0.025, 0.975), ..., seed = NULL)
 }
 \arguments{
 \item{imp.rst}{A class \code{IDEMIMP} object returned from
@@ -13,19 +13,21 @@ imInfer(imp.rst, n.boot = 0, n.cores = 1, update.progress = NULL,
 
 \item{n.boot}{Number of bootstrap samples}
 
-\item{n.cores}{Number of cores for parallel computation}
+\item{n.cores}{Number of cores for parallel computation. Fixed at 1 for Windows.}
 
 \item{update.progress}{Parameter reserved for run \code{idem} in GUI mode}
 
 \item{effect.quantiles}{Composite quantiles of interest for measuring
 treatment effect}
 
-\item{quantiles}{Quantiles for extracting bootstrap confidence intervals}
+\item{quant.ci}{Quantiles for extracting bootstrap confidence intervals}
 
 \item{...}{Extra options for ranking subjects using the composite endpoint
 that include \itemize{ \item{\code{cut.z}: }{ Clinically meaningful difference in
 the functional outcome} \item{\code{cut.surv}: }{ Clinically meaningful difference
 in survival time}}}
+
+\item{seed}{Random seed}
 }
 \value{
 A class \code{IDEMTEST} list containing
@@ -87,4 +89,3 @@ rst.est <- imInfer(rst.imp, n.boot = 0, effect.quantiles = c(0.25,0.5,0.75));
 rst.test <- imInfer(rst.imp, n.boot = 100, effect.quantiles = c(0.25,0.5,0.75));}
 
 }
-

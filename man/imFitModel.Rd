@@ -37,4 +37,3 @@ im.fit <- imFitModel(im.abc);
 \seealso{
 \code{\link{imData}}, \code{\link{idem-package}}
 }
-

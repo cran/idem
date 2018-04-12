@@ -33,4 +33,3 @@ rst.test <- imInfer(rst.imp, n.boot = 100);
 print(rst.test, delta0 = 0, delta1  = 0.15)}
 
 }
-

@@ -12,7 +12,7 @@ get.coef <- function(reg.rst) {
 ##get constants
 get.const <- function(cname) {
     switch(cname,
-           ORG.PREFIX  = "ORG",
+           ORG.PREFIX  = "ORIG",
            TXT.ENDP    = "ENDP",
            IDEM.CLASS  = "IDEMDATA",
            ERR.CLASS   = "IDEMERROR",
@@ -248,10 +248,23 @@ chk.pars <- function(data.all, lst.var) {
     }
 
     err.msg  <- NULL;
-    if (0 == length(lst.var$trt))
+
+    ##treatment
+    if (0 == length(lst.var$trt)) {
         err.msg <- ep("No treatment specified");
-    if (1 < length(lst.var$trt))
+    } else if (1 < length(lst.var$trt)) {
         err.msg <- ep("More than one treatment specified");
+    } else {
+        chk.trt <- data.all[, lst.var$trt];
+        if (2 != length(unique(chk.trt)))
+            err.msg <- ep("The treatment column has different than 2 levels.");
+    }
+
+    ## if (!is.null(lst.var$trt.label)) {
+    ##     if (2 != lst.var$trt.label)
+    ##         err.msg <- ep("The treatment label is not length 2.");
+    ## }
+
     if (0 == length(lst.var$surv))
         err.msg <- ep("No survival time specified");
     if (1 < length(lst.var$surv))
@@ -357,7 +370,7 @@ get.mis.table <- function(data.all, lst.var) {
     }
 
     rst <- cbind(rbind("", mis.pat, ""), rst);
-    colnames(rst) <- c(voutcome, 'Control', 'Intervention');
+    colnames(rst) <- c(voutcome, trt.len);
     rownames(rst) <- c("Deaths on study",
                        paste("S=", 1:nrow(mis.pat), sep=""),
                        "Total");
@@ -397,6 +410,19 @@ get.needimp <- function(data.all, lst.var, endponly=FALSE) {
     } else {
         need.imp;
     }
+}
+
+## get missing patter of a given dataset
+get.dta.pattern <- function(data.outcome) {
+    nt <- ncol(data.outcome);
+    bs <- NULL;
+    for (i in 1:nt) {
+        bs <- c(2^(i-1), bs);
+    }
+
+    apply(is.na(data.outcome), 1, function(x) {
+        sum(x * bs);
+    })
 }
 
 ##------------------------------------------------------
@@ -951,6 +977,12 @@ get.tests <- function(rst.org, rst.boot, quantiles=c(0.025,0.975)) {
                       from orank a
                       left join rsd b on (a.Delta0 = b.Delta0 and a.Delta1 = b.Delta1)");
 
+    ##rank confidence interval
+    for (j in 1:length(quantiles)) {
+        cur.q            <- paste("Q", quantiles[j]*100, sep = "");
+        rstrank[[cur.q]] <- rstrank[,"Theta"] + rstrank[,"SD"] * qnorm(quantiles[j]);
+    }
+
     rstrank$PValue<- apply(rstrank,
                            1,
                            function(x) { 2*min(pnorm(x[3],0,x[4]),
@@ -1091,12 +1123,15 @@ plot.survivor <- function(data.all,
 }
 
 plot.mispattern <- function(data.all,
-                             lst.var,
-                             cols=c("blue", "gray"),
-                             fname=NULL, ...) {
+                            lst.var,
+                            cols=c("blue", "gray"),
+                            order.by = c("pattern", "amount"),
+                            fname=NULL, ...) {
 
     voutcome <- NULL;
     vtrt     <- NULL;
+
+    order.by <- match.arg(order.by);
 
     get.para(lst.var, environment());
 
@@ -1117,7 +1152,12 @@ plot.mispattern <- function(data.all,
         cur.data <- data.all[which(a.trt[i] == data.all[,vtrt]),
                              voutcome];
 
-        cur.data <- cur.data[order(apply(cur.data,1,sum)),];
+        ##order subjects
+        o.inx <- switch(order.by,
+                        amount  = order(apply(is.na(cur.data),1,sum)),
+                        pattern = order(get.dta.pattern(cur.data)))
+
+        cur.data <- cur.data[o.inx,];
         plot(NULL, NULL, xlim=c(0.5, n.time+0.5), ylim=c(0, n.sub+8), axes=FALSE,
              xlab="Outcomes", ylab="Subjects", main=trt.len[i]);
         axis(1, at=1:n.time, labels=voutcome);
@@ -1185,7 +1225,7 @@ plot.surv <- function(data.all,
     }
 
     legend("topright",
-           legend=c('Control','Intervention', sprintf("p-value = %5.3f",p.val)),
+           legend=c(trt.len, sprintf("p-value = %5.3f",p.val)),
            lty=c(1,2,0),
            col=c(cols,'black'),
            bty="n", cex=1.2);
@@ -1285,8 +1325,7 @@ plot.imputed <- function(imp.rst,
     }
 
     if (is.null(trt.len)) {
-        #trt.len <- paste(toupper(lst.var$trt), "=", a.trt, sep="");
-        trt.len <- ifelse(a.trt == 0, 'Control','Intervention')  ## AL
+        trt.len <- paste(toupper(lst.var$trt), "=", a.trt, sep="");
     }
 
     ##outputfile

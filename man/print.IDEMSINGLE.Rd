@@ -18,4 +18,3 @@ by \code{\link{imImpSingle}}
 \seealso{
 \code{\link{imImpSingle}}
 }
-

@@ -1,7 +1,7 @@
 Package: idem
 Title: Inference in Randomized Controlled Trials with Death and
         Missingness
-Version: 3.0
+Version: 3.5
 Author: Chenguang Wang [aut, cre],
     Andrew Leroux [aut, cre],
     Elizabeth Colantuoni [aut],
@@ -26,10 +26,10 @@ RcppModules: stan_fit4idem_mod
 Imports: sqldf (>= 0.4), survival (>= 2.38), parallel (>= 3.2), methods
 Encoding: UTF-8
 LazyData: true
-RoxygenNote: 5.0.1
+RoxygenNote: 6.0.1
 Suggests: knitr, shiny, rmarkdown, pander, DT, shinythemes
 VignetteBuilder: knitr
 NeedsCompilation: yes
-Packaged: 2017-09-02 01:38:31 UTC; cwang68
+Packaged: 2018-04-12 07:00:15 UTC; cwang68
 Repository: CRAN
-Date/Publication: 2017-09-02 06:24:04 UTC
+Date/Publication: 2018-04-12 09:46:02 UTC
