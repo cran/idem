@@ -124,10 +124,11 @@ imData <- function(data, trt=NULL, surv=NULL, outcome=NULL, endfml=NULL,
 #' @seealso \code{\link{imData}}
 #'
 #' @examples
+#' \dontrun{
 #' rst.data <- imData(abc, trt="TRT", outcome=c("Y1","Y2"), y0=NULL,
 #'                    endfml="Y3", bounds=c(10,20), duration=365,
 #'                    err.terminate=FALSE);
-#' print(rst.data);
+#' print(rst.data);}
 #'
 #' @export
 #'

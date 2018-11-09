@@ -91,7 +91,21 @@ tab.login <- function(){
 tab.upload <- function(){
     tabPanel("Upload Data",
              fluidPage(
-                 msg.box('Please upload data file on this page. For an example of how to correctly specify an uploaded file, please see the previous tab. Right click, save as, to download an <a href="example.txt" download> example file </a>. Please see the previous tab for an example of how to perform a full data analysis using the example file. Note that the default settings on the "Upload", "Model Specification" and "Imputation" tabs are set such that the example analysis can be performed without changing any input parameters. For shorter computation time, one may wish to decrease "Iterations" and "Thinning" under the "Imputation" table.'),
+               msg.box('<p>You will upload your dataset on this page.  Your dataset has to be
+                          correctly formatted to ensure your analysis is completed correctly.  
+                          Click the "* data upload instruction" in the text box below for explicit
+                          instructions on how to format your data which included
+                          proper formatting of variables and file formats for upload.</p> 
+                          <p> We have provided an example dataset that you may download and use to
+                          conduct an analysis. 
+                          To download, right click and save as, this link: <a href="example.txt" download>
+                          example file </a>. </p>
+                          <p>Note that the default settings on the "Upload", "Model Specification"
+                          and "Imputation" tabs are set such that the example analysis 
+                          can be performed without changing any input parameters. For shorter
+                          computation time, one may wish to decrease "Iterations" and 
+                         "Thinning" under the "Imputation" table.</p>'),
+                 ## msg.box('Please upload data file on this page. For an example of how to correctly specify an uploaded file, please see the previous tab. Right click, save as, to download an <a href="example.txt" download> example file </a>. Please see the previous tab for an example of how to perform a full data analysis using the example file. Note that the default settings on the "Upload", "Model Specification" and "Imputation" tabs are set such that the example analysis can be performed without changing any input parameters. For shorter computation time, one may wish to decrease "Iterations" and "Thinning" under the "Imputation" table.'),
                  wellPanel(h4("Upload data"),
                            fluidRow(
                                column(3, h6("Choose File"),
