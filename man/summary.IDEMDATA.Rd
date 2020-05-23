@@ -4,8 +4,7 @@
 \alias{summary.IDEMDATA}
 \title{Summary of IDEMDATA object}
 \usage{
-\method{summary}{IDEMDATA}(object, opt = c("misstable", "missid", "trt"),
-  endponly = FALSE, ...)
+\method{summary}{IDEMDATA}(object, opt = c("misstable", "missid", "trt"), endponly = FALSE, ...)
 }
 \arguments{
 \item{object}{A class \code{IDEMDATA} object returned by \code{\link{imData}}}

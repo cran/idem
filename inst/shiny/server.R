@@ -532,7 +532,7 @@ shinyServer(function(input, output, session) {
           wellPanel(
             msg.box('NOTE: If you want to download the report as a pdf, you will need to have
                      both <a href="https://pandoc.org/installing.html" target="_blank"> pandoc</a>
-                     and <a href="https://miktex.org/" target="_blank">MiKTeX</a>
+                     and latex typesetting software such as <a href="https://miktex.org/" target="_blank">MiKTeX</a>
                      installed on your computer.'),
             h4('Download the analysis report'),
             radioButtons('format', '', c('PDF', 'HTML', 'Word')),

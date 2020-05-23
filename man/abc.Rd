@@ -3,14 +3,16 @@
 \name{abc}
 \alias{abc}
 \title{Example dataset}
-\format{A dataframe with 5 variables:
+\format{
+A dataframe with 5 variables:
 \describe{
   \item{AGE}{Age}
   \item{TRT}{Treatment assignment. 0: UC + SBT, 1: SAT + SBT}
   \item{SURV}{Survival days}
   \item{Y2}{Cognitive score at 12 months}
   \item{Y1}{Cognitive score at 3 months}
-}}
+}
+}
 \description{
 The Awakening and Breathing Controlled (ABC) trial randomized critically ill
 patients receiving mechanical ventilation 1:1 within each study site to

@@ -67,7 +67,8 @@ imFitModel <- function(im.data) {
             if (1 == j) {
                 prev.y <- NULL;
             } else {
-                prev.y <- voutcome[1:(j-1)];
+                ## prev.y <- voutcome[1:(j-1)];
+                prev.y <- voutcome[j-1]
             }
             cur.f    <- paste(voutcome[j], "~", paste(c(prev.y, vy0, vcov), collapse="+"));
             cur.lm   <- lm(as.formula(cur.f), data=cur.data);
@@ -208,7 +209,8 @@ plot.IDEMFIT <- function(x, trt = NULL, mfrow = NULL, ...) {
 #' @export
 #'
 imImpSingle <- function(dsub, fit.rst, normal=TRUE,
-                        chains = 4, iter = 5000, warmup = 1000, control = list(adapt_delta=0.95),
+                        chains = 4, iter = 5000, warmup = 1000,
+                        control = list(adapt_delta=0.95),
                         ..., seed = NULL) {
 
     stopifnot(class(fit.rst) == get.const("FIT.CLASS"));
@@ -282,6 +284,7 @@ imImpSingle <- function(dsub, fit.rst, normal=TRUE,
         COEF <- rbind(COEF, cur.coef);
     }
 
+
     list.stan <- list(NY   = length(outcome),
                       NOBS = length(INX.OBS),
                       YOBS = as.array(YOBS),
@@ -294,6 +297,7 @@ imImpSingle <- function(dsub, fit.rst, normal=TRUE,
                       RESIDUAL     = RESIDUAL,
                       NRES         = nrow(RESIDUAL),
                       H            = H);
+
     ##stan sampling
     stan.rst <- sampling(stanmodels[["idem"]],
                          data=list.stan,
@@ -527,15 +531,17 @@ imImpAll <- function(fit.rst,
         cur.bench <- imImpSingle(data.all[need.imp[i],],
                                  fit.rst,
                                  normal=normal, ...);
-        cur.rst <- imp.exponential(cur.bench, deltas=deltas, n.imp=n.imp);
-        cur.rst <- cbind('ID'=nrow(data.comp)+i, cur.rst);
+        cur.rst <- imp.exponential(cur.bench, deltas=deltas, n.imp=n.imp)
+
+        cur.rst <- cbind('ID' = nrow(data.comp) + i,
+                         cur.rst)
         rst     <- rbind(rst, cur.rst);
 
         if ("PROGRESS" %in% toupper(class(update.progress))) {
             update.progress$set(value=i/n.need,
                                 detail=paste(i, " out of ", n.need, sep=""));
         } else {
-            print(i);
+            cat(need.imp[i], ":", i, "out of", n.need, "\n");
         }
     }
 
@@ -551,10 +557,12 @@ imImpAll <- function(fit.rst,
                     normal   = normal,
                     org.data = data.all,
                     n.imp    = n.imp,
-                    stan.par = list(...),
+                    imp.par  = list(...),
+                    use_mice = FALSE,
                     complete = rst);
 
-    class(rtn.rst) <- c(class(rtn.rst), get.const("IMP.CLASS"));
+    class(rtn.rst) <- c(class(rtn.rst),
+                        get.const("IMP.CLASS"))
 
     invisible(rtn.rst);
 }

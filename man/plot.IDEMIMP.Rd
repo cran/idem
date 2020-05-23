@@ -4,8 +4,7 @@
 \alias{plot.IDEMIMP}
 \title{Plot imputation results}
 \usage{
-\method{plot}{IDEMIMP}(x, opt = c("imputed", "composite"),
-  fname = NULL, ...)
+\method{plot}{IDEMIMP}(x, opt = c("imputed", "composite"), fname = NULL, ...)
 }
 \arguments{
 \item{x}{A class \code{IDEMIMP} object returned from \code{\link{imImpAll}}}

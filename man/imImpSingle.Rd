@@ -4,9 +4,17 @@
 \alias{imImpSingle}
 \title{Impute missing data for MCMC convergence checking}
 \usage{
-imImpSingle(dsub, fit.rst, normal = TRUE, chains = 4, iter = 5000,
-  warmup = 1000, control = list(adapt_delta = 0.95), ...,
-  seed = NULL)
+imImpSingle(
+  dsub,
+  fit.rst,
+  normal = TRUE,
+  chains = 4,
+  iter = 5000,
+  warmup = 1000,
+  control = list(adapt_delta = 0.95),
+  ...,
+  seed = NULL
+)
 }
 \arguments{
 \item{dsub}{original individual subject data}

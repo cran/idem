@@ -4,10 +4,21 @@
 \alias{imData}
 \title{Create data for IDEM analysis}
 \usage{
-imData(data, trt = NULL, surv = NULL, outcome = NULL,
-  endfml = NULL, y0 = NULL, cov = NULL, duration = 9999,
-  bounds = NULL, trt.label = NULL, unitTime = "days",
-  err.terminate = TRUE, ...)
+imData(
+  data,
+  trt = NULL,
+  surv = NULL,
+  outcome = NULL,
+  endfml = NULL,
+  y0 = NULL,
+  cov = NULL,
+  duration = 9999,
+  bounds = NULL,
+  trt.label = NULL,
+  unitTime = "days",
+  err.terminate = TRUE,
+  ...
+)
 }
 \arguments{
 \item{data}{Original dataset}

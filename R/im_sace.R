@@ -63,9 +63,11 @@ summary.IDEMINFER <- function(object, opt = c("survivor", "SACE"), sace.deltas=N
     opt       <- match.arg(opt);
     surv.data <- object$survivor;
     n.boot    <- length(object$bootstrap);
+
     if ("survivor" == opt) {
         rst        <- surv.data[, c("Delta0", "Delta1")];
         rst$Effect <- surv.data[, "Diff"];
+
         if (n.boot > 0) {
             rst$LB     <- surv.data[, "Diff"] - 1.96*surv.data[, "SD"];
             rst$UB     <- surv.data[, "Diff"] + 1.96*surv.data[, "SD"];

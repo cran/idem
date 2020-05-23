@@ -81,7 +81,7 @@ imInfer <- function(imp.rst,
                     n.boot = 0,
                     n.cores = 1,
                     update.progress=NULL,
-                    effect.quantiles=0.5,
+                    effect.quantiles=c(0.25,0.5,0.75),
                     quant.ci=c(0.025, 0.975),
                     ...,
                     seed = NULL) {
@@ -101,19 +101,21 @@ imInfer <- function(imp.rst,
     }
 
     ##original result
-    rst.org <- get.estimate(imp.rst, effect.quantiles=effect.quantiles);
+    rst.org <- get.estimate(imp.rst,
+                            effect.quantiles=effect.quantiles);
 
     if (0 == n.boot) {
         rtn.rst  <- list(theta            = rst.org$theta,
                          effect.quantiles = rst.org$effect.quantiles,
                          survivor         = rst.org$survivor);
     } else {
-        data.all  <- imp.rst$org.data;
-        lst.var   <- imp.rst$lst.var;
-        deltas    <- imp.rst$deltas;
-        n.imp     <- imp.rst$n.imp;
-        stan.par  <- imp.rst$stan.par;
-        normal    <- imp.rst$normal;
+        data.all  <- imp.rst$org.data
+        lst.var   <- imp.rst$lst.var
+        deltas    <- imp.rst$deltas
+        n.imp     <- imp.rst$n.imp
+        imp.par   <- imp.rst$imp.par
+        normal    <- imp.rst$normal
+        use_mice  <- imp.rst$use_mice
         n.cores   <- min(n.cores, parallel::detectCores()-1);
 
         if ("PROGRESS" %in% toupper(class(update.progress))
@@ -130,14 +132,17 @@ imInfer <- function(imp.rst,
                                 }
                                 get.boot.single(data.all,
                                                 lst.var,
-                                                deltas=deltas,
-                                                n.imp=n.imp,
-                                                normal=normal,
-                                                stan.par=stan.par,
+                                                deltas   = deltas,
+                                                n.imp    = n.imp,
+                                                normal   = normal,
+                                                imp.par  = imp.par,
+                                                use_mice = use_mice,
                                                 effect.quantiles=effect.quantiles);
                             }, mc.cores=n.cores);
 
-        rst.test <- get.tests(rst.org, rst.bs, quantiles = quant.ci);
+        rst.test <- get.tests(rst.org, rst.bs,
+                              duration = imp.rst$lst.var$duration,
+                              quantiles = quant.ci);
 
         ##return
         rtn.rst  <- list(theta            = rst.test$theta,
@@ -193,7 +198,7 @@ print.IDEMINFER <- function(x, delta0=NULL, delta1=NULL, ...) {
     cat("\nThe sensitivity parameters considered were\n");
     print(x$deltas);
 
-    get.theta.quant(x, delta0=delta0, delta1=delta1);
+    rst <- get.theta.quant(x, delta0 = delta0, delta1 = delta1)
 
     if (0 == length(x$bootstrap)) {
         cat("\n\nPlease conduct bootstrap analysis for hypothesis testing.\n")
@@ -205,6 +210,8 @@ print.IDEMINFER <- function(x, delta0=NULL, delta1=NULL, ...) {
             cat(" Please consider more \nbootstrap samples (e.g. >100) for the validity \nof the results.\n");
         cat("\n");
     }
+
+    invisible(rst)
 }
 
 
@@ -258,5 +265,3 @@ plot.IDEMINFER <- function(x, con.v=0.05, nlevels=30, opt = c("pvalue", "effect"
     cur.data <- x$theta;
     plot.contour(cur.data, trt.len, col.var, con.v = con.v, nlevels = 30, ...);
 }
-
-

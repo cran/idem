@@ -14,7 +14,6 @@ functions {
     }
 
     rst = log(rst/n/h);      
-    
     //return
     return(rst);
   }
@@ -73,8 +72,7 @@ data {
   int<lower=0, upper=1> ASSUMENORMAL;
   int<lower=1>          NRES;
   matrix[NRES,NY]       RESIDUAL;
-  real                  H[NY];
-  
+  real                  H[NY]; 
 }
 
 transformed data {

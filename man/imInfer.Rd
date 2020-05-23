@@ -4,9 +4,16 @@
 \alias{imInfer}
 \title{Treatment effect estimation and hypothesis testing}
 \usage{
-imInfer(imp.rst, n.boot = 0, n.cores = 1, update.progress = NULL,
-  effect.quantiles = 0.5, quant.ci = c(0.025, 0.975), ...,
-  seed = NULL)
+imInfer(
+  imp.rst,
+  n.boot = 0,
+  n.cores = 1,
+  update.progress = NULL,
+  effect.quantiles = c(0.25, 0.5, 0.75),
+  quant.ci = c(0.025, 0.975),
+  ...,
+  seed = NULL
+)
 }
 \arguments{
 \item{imp.rst}{A class \code{IDEMIMP} object returned from

@@ -12,6 +12,7 @@
 #' @importFrom utils read.table tail
 #' @importFrom sqldf sqldf
 #' @importFrom parallel detectCores mclapply
+#' @importFrom mice mice mice.impute.mnar.norm
 #'
 #' @import survival
 #' @import stats
@@ -70,7 +71,12 @@
 #' @references
 #'
 #' Wang C, Scharfstein DO, Colantuoni E, Girard T, Yan Y (2016). Inference in
-#' Randomized Trials with Death and Missingness.
+#' Randomized Trials with Death and Missingness. <DOI:10.1111/biom.12594>
+#'
+#' Wang C, Colantuoni E, Leroux A, Scharfstein DO (2020). idem: An R Package for
+#' Inferences in Clinical Trials with Death and Missingness.
+#' <DOI:10.18637/jss.v093.i12>
+#'
 #'
 NULL
 
