@@ -30,21 +30,13 @@ missing clinical outcomes will be imputed sequentially}
 \item{...}{Parameters for \code{mice}}
 }
 \value{
-If \code{imputeNone} is TRUE, return a dataset with the original data for the
-subset of subjects who died at the end of the study or had no missing outcomes.
-
-Otherwise, return a class \code{IDEMIMP} list with components
-\describe{
-\item{lst.var}{List of parameters}
-\item{complete}{A dataset with  the original data for
-the subset of subjects who died at the end of the study or had no missing
-outcomes and the \code{n.imp} imputed missing outcomes for subjects who need
-missing value imputation.
-}
-\item{n.imp}{Number of imputed complete datasets}
-\item{deltas}{Imputation sensitivity parameters}
-\item{org.data}{Original dataset}
-}
+A class \code{IDEMIMP} list with components \describe{ \item{lst.var}{List of
+parameters} \item{complete}{A dataset with the original data for the subset
+of subjects who died at the end of the study or had no missing outcomes and
+the \code{n.imp} imputed missing outcomes for subjects who need missing value
+imputation. } \item{n.imp}{Number of imputed complete datasets}
+\item{deltas}{Imputation sensitivity parameters} \item{org.data}{Original
+dataset} }
 }
 \description{
 Conduct imputation using the NARFCS model implemented in the \code{mice}

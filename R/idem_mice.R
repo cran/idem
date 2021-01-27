@@ -115,7 +115,14 @@ imImpAll_mice <- function(im.data, deltas = 0, n.imp  = 5,
     a.trt  <- get.trt(data.all[,vtrt]);
     for (i in 1:length(a.trt)) {
         cur_data <- data_surv[which(a.trt[i] == data_surv[, vtrt]), ]
-        cur_d    <- cur_data[ , c(voutcome, vy0, vcov)]
+        cur_d    <- cur_data[, c(voutcome, vy0, vcov)]
+
+        imp_id  <- cur_data[, "__id__"]
+        imp_inx <- which(imp_id %in% need.imp)
+        imp_id  <- imp_id[imp_inx]
+
+        if (0 == length(imp_inx))
+            next
 
         for (j in deltas) {
             ## add 0 * to avoid bug in mice because of %*% delta
@@ -130,18 +137,13 @@ imImpAll_mice <- function(im.data, deltas = 0, n.imp  = 5,
             ## print(cur_imp$logged)
 
             ## append to results
-            imp_id  <- cur_data[, "__id__"]
-            imp_inx <- which(imp_id %in% need.imp)
-            imp_id  <- imp_id[imp_inx]
-
             cur_imp_data <- data.all[imp_id, ]
             for (k in seq_len(n.imp)) {
-                cur_complete             <- complete(cur_imp, k)
+                cur_complete             <- mice::complete(cur_imp, k)
                 cur_imp_data[, voutcome] <- cur_complete[imp_inx, voutcome]
-                cur_imp_data$ID          <- rec_id + seq_len(nrow(cur_imp_data))
-                cur_imp_data$DELTA       <- j
-                cur_imp_data$IMP         <- k
-
+                cur_imp_data$ID     <- rec_id + seq_len(nrow(cur_imp_data))
+                cur_imp_data$DELTA  <- j
+                cur_imp_data$IMP    <- k
                 rst <- rbind(rst, cur_imp_data)
             }
             rec_id <- rec_id + length(imp_id)

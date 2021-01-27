@@ -12,10 +12,10 @@
 #' @importFrom utils read.table tail
 #' @importFrom sqldf sqldf
 #' @importFrom parallel detectCores mclapply
-#' @importFrom mice mice mice.impute.mnar.norm
+#' @importFrom mice mice mice.impute.mnar.norm complete
 #'
-#' @import survival
 #' @import stats
+#' @import survival
 #' @import Rcpp
 #' @import methods
 #'
