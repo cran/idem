@@ -52,7 +52,7 @@ imFitModel <- function(im.data) {
     data.all <- get.transfer.all(data.all, lst.var);
 
     ##completers
-    is.comp  <- apply(data.all[, voutcome],
+    is.comp  <- apply(data.all[, voutcome, drop = FALSE],
                       1,
                       function(x){all(!is.na(x))});
 

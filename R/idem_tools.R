@@ -289,7 +289,7 @@ chk.pars <- function(data.all, lst.var) {
             err.msg <- ep("Endpoint expression contains more than one line");
         } else {
             chk.end <- NULL;
-            eval(parse(text=paste("chk.end <- try(with(data.all[, var.out],
+            eval(parse(text=paste("chk.end <- try(with(data.all[, var.out, drop = FALSE],
                                   {",lst.var$endfml,"}), silent=T)"
                                   )
                        )
@@ -508,7 +508,7 @@ get.band.h <- function(res) {
 }
 
 ##kernel density pdf
-c.kdpdf <- function(err, res, h=NULL, log.v=TRUE) {
+c.kdpdf <- function(err, res, h=NULL, log.v=TRUE, ...) {
 
     if (is.null(h)) {
         h <- get.band.h(res);
@@ -579,7 +579,7 @@ imp.exponential <- function(imp.single, deltas=0, n.imp=5, maxiter=1000) {
 ##           RANK ANALYSIS
 ##
 ##------------------------------------------------------
-c.rankij <- function(val.i, val.j, duration, cut.surv=0, cut.z=0) {
+c.rankij <- function(val.i, val.j, duration, cut.surv=0, cut.z=0, ...) {
     tmp <- 0;
     rst.c <- .C("rankij",
                 as.double(val.i[1]), as.double(val.i[2]),
@@ -593,7 +593,7 @@ c.rankij <- function(val.i, val.j, duration, cut.surv=0, cut.z=0) {
 }
 
 ##get the rank test statistic \theta
-c.rankall <- function(val.trt1, val.trt2, duration, cut.surv=0, cut.z=0) {
+c.rankall <- function(val.trt1, val.trt2, duration, cut.surv=0, cut.z=0, ...) {
     tmp <- 0;
     rst.c <- .C("rankall",
                 as.double(t(val.trt1)), as.double(t(val.trt2)),
@@ -605,7 +605,7 @@ c.rankall <- function(val.trt1, val.trt2, duration, cut.surv=0, cut.z=0) {
 }
 
 ##bubble sort for ordering subjects from one trt to get median
-c.bubblesort <- function(val.trt, duration, cut.surv=0, cut.z=0) {
+c.bubblesort <- function(val.trt, duration, cut.surv=0, cut.z=0, ...) {
 
     if (1 == nrow(val.trt))
         return(c(val.trt,1));
@@ -1057,10 +1057,12 @@ get.theta.quant <- function(object, delta0 = NULL, delta1 = NULL) {
 ##           Plot
 ##
 ##------------------------------------------------------
-plot.survivor <- function(data.all,
+plot.survivor <- function(x,
                            lst.var,
                            fname=NULL,
                            ...) {
+
+    data.all <- x;
 
     vsurv     <- NULL;
     duration  <- NULL;
@@ -1139,11 +1141,13 @@ plot.survivor <- function(data.all,
 
 }
 
-plot.mispattern <- function(data.all,
+plot.mispattern <- function(x,
                             lst.var,
                             cols=c("blue", "gray"),
                             order.by = c("pattern", "amount"),
                             fname=NULL, ...) {
+    
+    data.all <- x;
 
     voutcome <- NULL;
     vtrt     <- NULL;
@@ -1196,10 +1200,12 @@ plot.mispattern <- function(data.all,
         dev.off();
 }
 
-plot.surv <- function(data.all,
+plot.surv <- function(x,
                        lst.var,
                        cols=c("black", "blue"),
                        fname=NULL, ...) {
+
+    data.all <- x;
 
     vsurv    <- NULL;
     vtrt     <- NULL;
@@ -1252,7 +1258,7 @@ plot.surv <- function(data.all,
 }
 
 ## Plot density of imputed values and the density of the observed outcomes
-plot.imputed <- function(imp.rst,
+plot.imputed <- function(x,
                          fname=NULL,
                          deltas=0,
                          endp=FALSE,
@@ -1264,6 +1270,8 @@ plot.imputed <- function(imp.rst,
                          mfrow=NULL,
                          to.plot=NULL,
                          ...) {
+
+    imp.rst <- x;               
 
     if (is.null(imp.rst))
         return(NULL);
@@ -1402,7 +1410,7 @@ plot.imputed <- function(imp.rst,
 }
 
 ## Generate cumulative plot of the composite survival and functional outcome
-plot.composite <- function(imp.rst,
+plot.composite <- function(x,
                            delta=0,
                            fname=NULL,
                            buffer=0.05,
@@ -1415,6 +1423,7 @@ plot.composite <- function(imp.rst,
                            main="",
                            ...) {
 
+    imp.rst <- x;
 
     if (is.null(imp.rst))
         return(NULL);
@@ -1522,7 +1531,9 @@ plot.composite <- function(imp.rst,
 
 
 ##generate contour plot
-plot.contour <- function(cur.data, trt.len, col.var, con.v=0.05, nlevels=30, ...) {
+plot.contour <- function(x, trt.len, col.var, con.v=0.05, nlevels=30, ...) {
+
+    cur.data <- x;
 
     alphas   <- sort(unique(cur.data$Delta0));
     ql       <- as.expression(lapply(trt.len, function(l) bquote(.(l)~Delta)));

@@ -6,6 +6,8 @@
 #' @useDynLib idem, .registration = TRUE
 #'
 #' @importFrom rstan sampling extract stanc
+#' @importFrom rstantools rstan_config
+#' @importFrom RcppParallel RcppParallelLibs
 #' @importFrom grDevices colors pdf dev.off grey
 #' @importFrom graphics axis box legend lines par plot points text contour
 #'     filled.contour grid rect abline
